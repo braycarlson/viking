@@ -1,6 +1,12 @@
-git+https://github.com/Rapptz/discord.py@rewrite#egg=discord.py[voice]
+aiodns
 aioredis
 asyncpg
+cchardet
+discord.py[voice]
+fuzzywuzzy[speedup]
 paramiko
-pyowm
-uvloop
+pipdeptree
+pip-upgrader
+python-dateutil
+python-Levenshtein
+uvloop; sys_platform == 'linux'

@@ -103,7 +103,14 @@ ENV/
 # Configuration
 *.ini
 *.pem
+*.ppk
+known_hosts
 
 # Viking
+*.sh
+api.txt
+cogs/random.py
+downloads/
+images/
 logs/
 old/

@@ -12,6 +12,8 @@ except ImportError:
     pass
 else:
     asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
+finally:
+    loop = asyncio.get_event_loop()
 
 
 @contextmanager
@@ -20,11 +22,18 @@ def logger():
         log = logging.getLogger()
         log.setLevel(logging.INFO)
 
-        file_handler = logging.FileHandler(filename=os.path.join(os.path.dirname(__file__), 'logs/viking.log'), encoding='utf-8')
+        file_handler = logging.FileHandler(
+            filename=os.path.join(
+                os.path.dirname(__file__),
+                'logs/viking.log'),
+            encoding='utf-8'
+        )
         stream_handler = logging.StreamHandler()
-
-        date_format = '%Y-%m-%d %I:%M %p'
-        formatter = logging.Formatter('[{asctime}] [{levelname}] {name}: {message}', date_format, style='{')
+        formatter = logging.Formatter(
+            '[{asctime}] [{levelname}] {name}: {message}',
+            '%Y-%m-%d %I:%M %p',
+            style='{'
+        )
 
         file_handler.setFormatter(formatter)
         stream_handler.setFormatter(formatter)
@@ -47,18 +56,22 @@ def run():
 
     try:
         postgresql = loop.run_until_complete(
-                        asyncpg.create_pool(
-                            dsn=viking.postgresql_uri,
-                            command_timeout=60,
-                            min_size=5))
+            asyncpg.create_pool(
+                dsn=viking.postgresql_uri,
+                command_timeout=60,
+                min_size=5
+            )
+        )
     except Exception:
         log.exception('PostgreSQL could not connect. Exiting...')
         return
 
     try:
         redis = loop.run_until_complete(
-                    aioredis.create_connection(
-                        viking.redis_uri))
+            aioredis.create_connection(
+                viking.redis_uri
+            )
+        )
 
     except Exception:
         log.exception('Redis could not connect. Exiting...')

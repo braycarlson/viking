@@ -1,6 +1,6 @@
 The MIT License (MIT)
 
-Copyright 2015-2017 Rapptz
+Copyright 2015-2019 Rapptz
 Copyright 2019 Brayden Carlson
 
 Permission is hereby granted, free of charge, to any person obtaining a

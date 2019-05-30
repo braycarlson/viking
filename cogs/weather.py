@@ -1,65 +1,158 @@
 import discord
-import pyowm
 from discord.ext import commands
-from functools import partial
+from utilities.checks import is_channel
+from utilities.format import format_utc
+from utilities.request import RequestError, fetch
 
 
-class Weather:
+BASE = 'http://api.openweathermap.org/data/2.5'
+
+
+class Forecast:
+    __slots__ = (
+        'city',
+        'country',
+        'conditions',
+        'condition',
+        'description',
+        'temperature',
+        'low_temperature',
+        'high_temperature',
+        'wind',
+        'humidity',
+        'pressure',
+        'observed'
+    )
+
+    def __init__(self, data):
+        self.city = data.get('name')
+        self.country = data.get('sys').get('country')
+        self.conditions = data.get('weather')
+        self.temperature = data.get('main').get('temp')
+        self.low_temperature = data.get('main').get('temp_min')
+        self.high_temperature = data.get('main').get('temp_max')
+        self.wind = data.get('wind').get('speed')
+        self.humidity = data.get('main').get('humidity')
+        self.pressure = data.get('main').get('pressure')
+        self.observed = data.get('dt')
+
+        for condition in self.conditions:
+            self.condition = condition.get('main').title()
+            self.description = condition.get('description').title()
+
+    @property
+    def fahrenheit(self) -> float:
+        return (self.temperature * 9/5) + 32
+
+    @property
+    def low_fahrenheit(self) -> float:
+        return (self.low_temperature * 9/5) + 32
+
+    @property
+    def high_fahrenheit(self) -> float:
+        return (self.high_temperature * 9/5) + 32
+
+    @property
+    def kmh_wind(self) -> float:
+        return self.wind * 3600 / 1000
+
+    @property
+    def mph_wind(self) -> float:
+        return self.wind / 0.44704
+
+    @property
+    def date(self) -> str:
+        return format_utc(self.observed)
+
+
+class Weather(commands.Cog):
     def __init__(self, viking):
         self.viking = viking
-        self.color = viking.color
         self.owm_api_key = viking.owm_api_key
+        self.session = viking.session
 
     @commands.command()
-    async def forecast(self, ctx, *, city):
-        """*forecast <location>
+    @commands.cooldown(rate=60, per=60.0, type=commands.BucketType.default)
+    @is_channel(579830092352716820)
+    async def forecast(self, ctx, *, location: str):
+        """
+        *forecast <location>
 
-        A command that will return the forecast of a specified location.
+        A command that displays the forecast for a location.
         """
 
-        owm = pyowm.OWM(self.owm_api_key)
+        params = {
+            'appid': self.owm_api_key
+        }
 
-        observation = await self.viking.loop.run_in_executor(
-            None, partial(owm.weather_at_place, city))
+        url = f"{BASE}/weather?q={location}&units=metric"
 
-        location = observation.get_location()
-        weather = observation.get_weather()
-        time = observation.get_reception_time('date')
+        try:
+            response = await fetch(self.session, url, params=params)
+        except RequestError:
+            await ctx.send('No location found.')
+        else:
+            forecast = Forecast(response)
 
-        name = location.get_name()
-        country = location.get_country()
-        longitude = location.get_lon()
-        latitude = location.get_lat()
+            degree = '\u00B0'
 
-        temperature_celsius = weather.get_temperature('celsius')['temp']
-        temperature_fahrenheit = weather.get_temperature('fahrenheit')['temp']
-        low_celsius = weather.get_temperature('celsius')['temp_min']
-        high_celsius = weather.get_temperature('celsius')['temp_max']
-        low_fahrenheit = weather.get_temperature('fahrenheit')['temp_min']
-        high_fahrenheit = weather.get_temperature('fahrenheit')['temp_max']
-        wind = weather.get_wind()
-        description = weather.get_detailed_status().title()
-        humidity = weather.get_humidity()
-        pressure = weather.get_pressure()['press']
+            embed = discord.Embed(colour=self.viking.color)
+            embed.add_field(
+                inline=False,
+                name='Location',
+                value=f"{forecast.city}, {forecast.country}"
+            )
+            embed.add_field(
+                inline=False,
+                name='Temperature',
+                value=f"{round(forecast.temperature)}{degree}C "
+                      f"/ {round(forecast.fahrenheit)}{degree}F"
+            )
+            embed.add_field(
+                inline=False,
+                name='Low',
+                value=f"{round(forecast.low_temperature)}{degree}C "
+                      f"/ {round(forecast.low_fahrenheit)}{degree}F"
+            )
+            embed.add_field(
+                inline=False,
+                name='High',
+                value=f"{round(forecast.high_temperature)}{degree}C "
+                      f"/ {round(forecast.high_fahrenheit)}{degree}F"
+            )
+            embed.add_field(
+                inline=False,
+                name='Weather',
+                value=f"{forecast.condition}"
+            )
+            embed.add_field(
+                inline=False,
+                name='Description',
+                value=f"{forecast.description}"
+            )
+            embed.add_field(
+                inline=False,
+                name='Humidity',
+                value=f"{forecast.humidity}%"
+            )
+            embed.add_field(
+                inline=False,
+                name='Wind',
+                value=f"{round(forecast.kmh_wind)} km/h / "
+                      f"{round(forecast.mph_wind)} mph"
+            )
+            embed.add_field(
+                inline=False,
+                name='Pressure',
+                value=f"{forecast.pressure} hpa"
+            )
+            embed.add_field(
+                inline=False,
+                name='Observation',
+                value=forecast.date
+            )
 
-        degree = '\N{DEGREE SIGN}'
-        wind_kmh = round(wind['speed'] * 3600 / 1000, 2)
-        wind_mph = round(wind['speed'] / 0.44704, 2)
-
-        embed = discord.Embed(colour=self.color)
-        embed.add_field(inline=False, name='City', value=name)
-        embed.add_field(inline=False, name='Country', value=country)
-        embed.add_field(inline=False, name='Coordinates', value=f"{latitude}, {longitude}")
-        embed.add_field(inline=False, name='Temperature', value=f"{temperature_celsius}{degree}C / {temperature_fahrenheit}{degree}F")
-        embed.add_field(inline=False, name='Low', value=f"{low_celsius}{degree}C / {low_fahrenheit}{degree}F")
-        embed.add_field(inline=False, name='High', value=f"{high_celsius}{degree}C / {high_fahrenheit}{degree}F")
-        embed.add_field(inline=False, name='Description', value=description)
-        embed.add_field(inline=False, name='Humidity', value=f"{humidity}%")
-        embed.add_field(inline=False, name='Wind', value=f"{wind_kmh} km/h / {wind_mph} mph")
-        embed.add_field(inline=False, name='Pressure', value=f"{pressure} hpa")
-        embed.add_field(inline=False, name='Observation', value=time.strftime('%I:%M %p'))
-
-        await ctx.send(embed=embed)
+            await ctx.send(embed=embed)
 
 
 def setup(viking):

@@ -1,53 +1,90 @@
 import logging
+import os
 import paramiko
-import platform
 from discord.ext import commands
-from subprocess import Popen, PIPE
 
 
 log = logging.getLogger(__name__)
 
 
-class Administration:
+class Administration(commands.Cog):
     def __init__(self, viking):
-        self. viking = viking
+        self.viking = viking
+        self.crontab_path = os.path.join(
+            self.viking.root,
+            'logs/crontab.txt'
+        )
+        self.log_path = os.path.join(
+            self.viking.root,
+            'logs/viking.log'
+        )
+        self.session = viking.session
 
     @commands.command(hidden=True)
     @commands.is_owner()
     async def kill(self, ctx):
-        """*kill
+        """
+        *kill
 
-        A command that logs out of Discord, and closes
-        all connections.
+        A command that closes all database connections, and logs out
+        of Discord.
         """
 
+        await ctx.message.delete()
+
         log.info('Viking is offline.')
+        self.viking.redis.close()
+        await self.viking.postgresql.close()
+        await self.viking.session.close()
         await self.viking.logout()
 
     @commands.command(hidden=True)
     @commands.is_owner()
     async def restart(self, ctx):
-        """*restart
+        """
+        *restart
 
-        A command that will restart my Raspberry Pi, and subsequently Viking.
+        A command that restarts my Raspberry Pi and subsequently Viking.
         """
 
-        if platform.system() is 'Windows':
-            client = paramiko.SSHClient()
-            client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-            client.connect(hostname='192.168.0.21', username='brayden', key_filename='private_key.pem')
-            client.exec_command('sudo /home/brayden/Documents/viking/reboot.sh')
-            client.close()
+        await ctx.message.delete()
 
-            log.info('Viking is restarting.')
-            await self.viking.logout()
+        client = paramiko.SSHClient()
+        client.load_host_keys(
+            os.path.join(
+                self.viking.root,
+                'known_hosts'
+            )
+        )
+        client.connect(
+            hostname='192.168.0.21',
+            username='brayden',
+            key_filename=os.path.join(
+                self.viking.root,
+                'private_key.pem'
+            )
+        )
+        client.exec_command('sudo /sbin/reboot')
+        client.close()
 
-        else:
-            process = Popen(['sudo', '/home/brayden/Documents/viking/reboot.sh'], stdout=PIPE, stderr=PIPE)
-            stdout, stderr = process.communicate()
+        log.info('Viking is restarting.')
+        self.viking.redis.close()
+        await self.viking.postgresql.close()
+        await self.viking.session.close()
+        await self.viking.logout()
 
-            log.info('Viking is restarting.')
-            await self.viking.logout()
+    @commands.command(hidden=True)
+    @commands.is_owner()
+    async def wipe(self, ctx):
+        """
+        *wipe
+
+        A command that clears all log files.
+        """
+
+        await ctx.message.delete()
+        open(self.crontab_path, 'w').close()
+        open(self.log_path, 'w').close()
 
 
 def setup(viking):

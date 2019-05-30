@@ -1,6 +1,6 @@
 ## Viking
 
-Viking is a bot that uses [discord.py (rewrite)](https://github.com/Rapptz/discord.py/tree/rewrite).
+Viking is a bot that uses [discord.py](https://github.com/Rapptz/discord.py).
 
 ## Getting Started
 
@@ -21,126 +21,215 @@ $ pip install -r requirements.txt
 ### **Administration**
 
 ***kill**
-* Viking will log out of Discord, and close all connections.
+* Viking closes all database connections, and log out of Discord.
 
 ***restart**
-* Viking will restart my Raspberry Pi, and subsequently itself.
+* Viking restarts my Raspberry Pi, and subsequently itself.
+
+***wipe**
+* Viking wipes all log files.
 
 ### **Basic**
 
 ***coinflip**
-* Viking will flip a coin, and choose "Heads" or "Tails".
+* Viking flips a coin.
 
 ***count \<message>**
-* Viking will count the words in a message excluding punctuation.
+* Viking counts the words in a message, excluding punctuation.
 
 ***dice**
-* Viking will roll a six-sided dye, and output the result.
+* Viking rolls a dice.
 
 ***eightball \<question>**
-* Viking will respond to an author's question.
+* Viking answers a closed question.
 
 ***hello**
-* Viking will respond with a random greeting.
+* Viking responds with a random greeting.
 
 ***quotes**
-* Viking will return a random quotation.
+* Viking displays a random quotation.
 
 ***repeat \<amount> \<message>**
-* Viking will repeat a message a specified amount of times.
+* Viking repeats the message a specified amount of times.
 
 ***reverse \<message>**
-* Viking will reverse the words in an author's message.
+* Viking reverses the words in a message.
 
 ***tts \<message>**
-* Viking will use text-to-speech to repeat the author's message.
+* Viking uses text-to-speech to repeat the message.
 
 ***uptime**
-* Viking will return the duration it's been online for.
+* Viking displays it's uptime.
+
+### **Database**
+
+***drop**
+* Viking drops all tables in the database.
+
+***run**
+* Viking executes the necessary queries to create the database.
+
+***truncate \<table>**
+* Viking truncates a table in the database.
 
 ### **Discord**
 
+***administrators**
+* Viking lists all of the administrators in the guild.
+
 ***help**
-* Viking will list all available commands in the text channel.
+* Viking lists all available commands in the text channel.
 
 ***invite**
-* Viking will generate an invite link to the server.
-
-***joined \<member>**
-* Viking will return the date of when a specified member joined the server.
+* Viking generates an invite link to the server.
 
 ***members**
-* Viking will return the total number of members in the server.
+* Viking displays the total amount of members in Discord server.
+
+***moderators**
+* Viking lists all of the moderators in the guild.
+
+***nicknames**
+* Viking displays the total amount of members with nicknames in Discord server.
 
 ***owner**
-* Viking will mention the owner of the server.
+* Viking mentions the owner of the server.
 
 ***ping**
-* Viking will output it's latency.
+* Viking displays the latency to the Discord server.
 
 ### **Fortnite**
 
 ***fortnite \<platform> \<username>**
-* Viking will return a member's Fortnite statistics, including
+* Viking displays a member's Fortnite statistics, including
 solo, duo, squad and lifetime data.
 
 ### **League of Legends**
 
-***live \<username>**
-* Viking will give you a brief overview of everyone in your current game including: everyone's name, level, champion, rank and win/loss ratio.
+***build \<champion>**
+* Viking links you to the champion's most frequent and highest winning build path
+
+***counters \<champion>**
+* Viking links you to the champion's counters.
+
+***champion \<champion>**
+* Viking displays a champion's statistics.
+
+***duo \<champion>**
+* Viking links you to the champion's most successful duo.
+
+***game \<username>**
+* Viking displays an overview of everyone in an active game including: name, level, champion, rank and win/loss ratio.
+
+***matchups \<champion>**
+* Viking links you to the champion's most successful matchups in descending order.
+
+***path \<champion>**
+* Viking links you to the champion's most successful build path in descending order.
+
+***probuild \<username>**
+* Viking links you to a professional player's game, and show you how they played the champion.
+
+***runes \<champion>**
+* Viking links you to a champion's most successful rune page in descending order.
+
+***spell \<spell>**
+* Viking displays a summoner spell's statistics.
 
 ***summoner \<username>**
-* Viking will provide you with information regarding a League of Legends' account including: name, level, rank, points, win/loss ratio,
-and top five champions with the highest mastery points
+* Viking provides you with information regarding a League of Legends account including: name, level, rank, points, win/loss ratio, and the top five champions with the highest mastery points.
+
+### **Members**
+***about \<member>**
+* Viking displays an overview of a member.
+
+***created \<member>**
+* Viking displays the date of when a member created their Discord account.
+
+***id \<member>**
+* Viking displays the name and discriminator of a member from an ID.
+
+***joined \<member>**
+* Viking displays the date of when a member joined the guild.
 
 ### **Moderation**
 
+***afk \<member>**
+* Viking moves a member by name, nickname or ID to a designated voice channel.
+
 ***ban \<member>**
-* Viking will ban a member from the server by name, mention or ID.
+* Viking bans a member by name, nickname or ID.
 
 ***clear \<amount>**
-* Viking will clear a specified amount of messages from a text channel.
+* Viking clears a specified amount of messages from a text channel.
+
+***deafen \<member>**
+* Viking deafens a member by name, nickname or ID.
+
+***disconnect \<member>**
+* Viking disconnects a member from a voice channel by name, nickname or ID.
+
+***hidden**
+* Viking displays hidden commands that are available for administrators/moderators to use.
 
 ***kick \<member>**
-* Viking will kick a member from the server by name, mention or ID.
+* Viking kicks a member by name, nickname or ID.
 
 ***load \<extension>**
-* Viking will load an extension.
+* Viking loads an extension.
+
+***mute \<member>**
+* Viking mutes a member by name, nickname or ID.
 
 ***purge**
-* Viking will purge all messages from a text channel.
+* Viking purges all messages from a text channel.
 
 ***reload \<extension>**
-* Viking will reload an extension.
+* Viking reloads an extension.
+
+***restrict \<member>**
+* Viking chat-restricts a member by name, nickname or ID.
+
+***softdeafen \<seconds> \<member>**
+* Viking soft-deafens a member by name, nickname or ID.
+
+***softmute \<seconds> \<member>**
+* Viking soft-mutes a member by name, nickname or ID.
+
+***softrestricts \<seconds> \<member>**
+* Viking soft-restricts a member by name, nickname or ID.
 
 ***unban \<member>**
-* Viking will unban a member from the server by name, mention or ID.
+* Viking unbans a member by name, nickname or ID.
+
+***undeafen \<member>**
+* Viking undeafens a member by name, nickname or ID.
 
 ***unload \<extension>**
-* Viking will unload an extension.
+* Viking unloads an extension.
 
-### **PostgreSQL**
+***unmutes \<member>**
+* Viking unmutes a member by name, nickname or ID.
 
-***create_commands**
-* Viking will create the commands table for the database.
+***unrestrict \<member>**
+* Viking unrestricts a member by name, nickname or ID.
 
-***create_members**
-* Viking will create the members table for the database.
+### **Roles**
 
-***index_commands**
-* Viking will create a unique index on the commands table.
+***addrole \<role> \<member>**
+* Viking adds a role to a member by name, nickname or ID.
 
-***index_members**
-* Viking will create a unique index on the members table.
+***createrole \<role>**
+* Viking creates a role with no permissions.
 
-***insert_commands**
-* Viking will insert every command into the database.
+***deleterole \<role>**
+* Viking deletes a role.
 
-***insert_members**
-* Viking will insert every member into the database.
+***removerole \<role> \<member>**
+* Viking removes a role from a member by name, nickname or ID.
 
-***truncate \<table>**
-* Viking will truncate a table in the database.
+***role \<role>**
+* Viking displays an overview of the role.
 
 ### **Weather**
 
