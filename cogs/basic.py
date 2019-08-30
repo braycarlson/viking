@@ -176,14 +176,18 @@ class Basic(commands.Cog):
         hours, minutes = divmod(minutes, 60)
         days, hours = divmod(hours, 24)
         weeks, days = divmod(days, 7)
+        months, weeks = divmod(weeks, 4)
+        years, months = divmod(months, 52)
 
-        w = format_time(weeks, 'week', delimiter=True)
-        d = format_time(days, 'day', delimiter=True)
-        h = format_time(hours, 'hour', delimiter=True)
-        m = format_time(minutes, 'minute', delimiter=True)
-        s = format_time(seconds, 'second')
+        year = format_time(years, 'year', delimiter=True)
+        month = format_time(months, 'month', delimiter=True)
+        week = format_time(weeks, 'week', delimiter=True)
+        day = format_time(days, 'day', delimiter=True)
+        hour = format_time(hours, 'hour', delimiter=True)
+        minute = format_time(minutes, 'minute', delimiter=True)
+        second = format_time(seconds, 'second')
 
-        await ctx.send(f"{w} {d} {h} {m} {s}")
+        await ctx.send(f"{year} {month} {week} {day} {hour} {minute} {second}")
 
 
 def setup(viking):

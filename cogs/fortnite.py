@@ -1,8 +1,6 @@
 import discord
-import re
 from discord.ext import commands
 from typing import Tuple
-from utilities.checks import is_channel
 from utilities.request import fetch
 
 
@@ -62,9 +60,7 @@ class Lifetime:
         and then add the sum of the integers.
         """
 
-        pattern = re.compile('[^0-9]+')
-        integers = [int(pattern.sub('', arg)) for arg in args]
-
+        integers = [int(arg.replace(',', '')) for arg in args]
         return sum(integers)
 
     @property
@@ -157,7 +153,6 @@ class Fortnite(commands.Cog):
 
     @commands.command(aliases=['fn'])
     @commands.cooldown(rate=1, per=3.0, type=commands.BucketType.default)
-    @is_channel(579830092352716820)
     async def fortnite(self, ctx, platform: str, *, username: str):
         """
         *fortnite <platform> <username>

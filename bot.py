@@ -2,11 +2,13 @@ import aiohttp
 import discord
 import logging
 import os
+import sys
 import time
 import traceback
 from configparser import RawConfigParser
 from datetime import datetime
 from discord.ext import commands
+from tabulate import tabulate
 from utilities.format import format_list
 
 
@@ -28,8 +30,8 @@ class Viking(commands.Bot):
         )
 
         # Bot
-        self.bot_name = configuration['bot']['name']
-        self.client_id = configuration['bot'].getint('client_id')
+        self.bot_name = configuration['bot']['bot_name']
+        self.bot_id = configuration['bot'].getint('bot_id')
         self.color = discord.Colour.purple()
         self.guild_id = configuration['bot'].getint('guild_id')
         self.initialize_extensions = []
@@ -145,8 +147,17 @@ class Viking(commands.Bot):
         received from Discord.
         """
 
-        print(f"{self.bot_name} [#{self.client_id}]")
-        print(f"{datetime.now().strftime('%B %d, %Y at %I:%M %p')}")
+        python = sys.version_info
+
+        table = [
+            ['ID', self.bot_id],
+            ['Name', self.bot_name],
+            ['Python', f"{python.major}.{python.minor}.{python.micro}"],
+            ['Discord.py', discord.__version__],
+            ['Date', datetime.now().strftime('%B %d, %Y at %I:%M %p')]
+        ]
+
+        print(tabulate(table, tablefmt='psql'))
         log.info(f"{self.bot_name} is ready.")
 
     def run(self):

@@ -40,10 +40,10 @@ class Roles(commands.Cog):
 
         await self.event.role_update(after)
 
-        # If the role hierarchy is rearranged, assign the role with the
+        # If the role hierarchy is changed, assign the role with the
         # higher position as the top role in the database.
 
-        if before.position < after.position:
+        if before < after:
             await self.event.role_replace(after)
 
     # Commands
@@ -94,7 +94,7 @@ class Roles(commands.Cog):
             else:
                 log.info(f"{ctx.author} created the role {name}.")
         else:
-            await ctx.send(f"Please use another name.")
+            await ctx.send(f"A role with that name already exists.")
 
     @commands.command(hidden=True)
     @commands.has_any_role('Administrator')

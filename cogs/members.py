@@ -56,7 +56,7 @@ class Members(commands.Cog):
             else:
                 await self.event.nickname_append(before, after)
 
-        if before.top_role.id != after.top_role.id or after.top_role.position < before.top_role.position:
+        if before.top_role.id != after.top_role.id or after.top_role < before.top_role:
             await self.event.member_role_update(before, after)
 
     @commands.Cog.listener()

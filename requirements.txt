@@ -9,4 +9,5 @@ pipdeptree
 pip-upgrader
 python-dateutil
 python-Levenshtein
+tabulate
 uvloop; sys_platform == 'linux'

@@ -1,6 +1,5 @@
 import discord
 from discord.ext import commands
-from utilities.checks import is_channel
 from utilities.format import format_utc
 from utilities.request import RequestError, fetch
 
@@ -73,7 +72,6 @@ class Weather(commands.Cog):
 
     @commands.command()
     @commands.cooldown(rate=60, per=60.0, type=commands.BucketType.default)
-    @is_channel(579830092352716820)
     async def forecast(self, ctx, *, location: str):
         """
         *forecast <location>
