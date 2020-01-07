@@ -40,27 +40,27 @@ class Forecast:
             self.description = condition.get('description').title()
 
     @property
-    def fahrenheit(self) -> float:
+    def fahrenheit(self):
         return (self.temperature * 9/5) + 32
 
     @property
-    def low_fahrenheit(self) -> float:
+    def low_fahrenheit(self):
         return (self.low_temperature * 9/5) + 32
 
     @property
-    def high_fahrenheit(self) -> float:
+    def high_fahrenheit(self):
         return (self.high_temperature * 9/5) + 32
 
     @property
-    def kmh_wind(self) -> float:
+    def kmh_wind(self):
         return self.wind * 3600 / 1000
 
     @property
-    def mph_wind(self) -> float:
+    def mph_wind(self):
         return self.wind / 0.44704
 
     @property
-    def date(self) -> str:
+    def date(self):
         return format_utc(self.observed)
 
 

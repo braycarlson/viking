@@ -1,5 +1,6 @@
 import discord
 import logging
+from database.model import database, ActiveMembers
 from discord.ext import commands
 from utilities.format import format_list
 
@@ -10,6 +11,9 @@ log = logging.getLogger(__name__)
 class Discord(commands.Cog):
     def __init__(self, viking):
         self.viking = viking
+        self.administrator = viking.administrator
+        self.moderator = viking.moderator
+        self.normal = viking.normal
 
     @commands.command(aliases=['admins'])
     async def administrators(self, ctx):
@@ -20,24 +24,21 @@ class Discord(commands.Cog):
         guild.
         """
 
-        async with self.viking.postgresql.acquire() as connection:
-            query = """
-                    SELECT display_name
-                    FROM members
-                    WHERE role_id = 281951458587574282
-                    """
+        rows = await ActiveMembers.select('display_name').where(
+            ActiveMembers.role_id == self.administrator
+        ).gino.all()
 
-            rows = await connection.fetch(query)
-            names = format_list(
-                rows,
-                key='display_name',
-                symbol='bullet',
-                sort=True
-            )
+        names = [dict(row).get('display_name') for row in rows]
 
-            embed = discord.Embed(color=self.viking.color)
-            embed.add_field(name='Administrators', value=names)
-            await ctx.send(embed=embed)
+        name = format_list(
+            names,
+            symbol='bullet',
+            sort=True
+        )
+
+        embed = discord.Embed(color=self.viking.color)
+        embed.add_field(name='Administrators', value=name)
+        await ctx.send(embed=embed)
 
     @commands.command()
     async def invite(self, ctx):
@@ -59,14 +60,8 @@ class Discord(commands.Cog):
         the guild.
         """
 
-        async with self.viking.postgresql.acquire() as connection:
-            query = """
-                    SELECT COUNT(discord_id)
-                    FROM members
-                    """
-
-            row = await connection.fetchval(query)
-            await ctx.send(f"There are {row} members in this server")
+        count = await database.func.count(ActiveMembers.discord_id).gino.scalar()
+        await ctx.send(f"There are {count} members in this server")
 
     @commands.command(aliases=['mods'])
     async def moderators(self, ctx):
@@ -76,24 +71,21 @@ class Discord(commands.Cog):
         A command that displays the names of the moderators in the guild.
         """
 
-        async with self.viking.postgresql.acquire() as connection:
-            query = """
-                    SELECT display_name
-                    FROM members
-                    WHERE role_id = 281968300278284288
-                    """
+        rows = await ActiveMembers.select('display_name').where(
+            ActiveMembers.role_id == self.moderator
+        ).gino.all()
 
-            rows = await connection.fetch(query)
-            names = format_list(
-                rows,
-                key='display_name',
-                symbol='bullet',
-                sort=True
-            )
+        names = [dict(row).get('display_name') for row in rows]
 
-            embed = discord.Embed(color=self.viking.color)
-            embed.add_field(name='Moderators', value=names)
-            await ctx.send(embed=embed)
+        name = format_list(
+            names,
+            symbol='bullet',
+            sort=True
+        )
+
+        embed = discord.Embed(color=self.viking.color)
+        embed.add_field(name='Moderators', value=name)
+        await ctx.send(embed=embed)
 
     @commands.command()
     async def nicknames(self, ctx):
@@ -104,15 +96,8 @@ class Discord(commands.Cog):
         with nicknames in the guild.
         """
 
-        async with self.viking.postgresql.acquire() as connection:
-            query = """
-                    SELECT COUNT(nickname)
-                    FROM members
-                    WHERE nickname IS NOT NULL
-                    """
-
-            row = await connection.fetchval(query)
-            await ctx.send(f"There are {row} members with nicknames")
+        count = await database.func.count(ActiveMembers.nickname).gino.scalar()
+        await ctx.send(f"There are {count} members with nicknames")
 
     @commands.command()
     async def owner(self, ctx):

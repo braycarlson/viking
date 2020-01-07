@@ -1,7 +1,11 @@
 import asyncio
-import asyncpg
 import discord
-from typing import List
+from database.model import (
+    database,
+    ActiveMembers,
+    BannedMembers,
+    RemovedMembers
+)
 
 
 class MemberError(Exception):
@@ -64,22 +68,26 @@ async def get_member_by_id(self, ctx, identifier: str, table='members'):
         name = identifier.lower()
         return await get_member_by_name(self, ctx, name, table)
     else:
-        async with self.viking.postgresql.acquire() as connection:
-            query = f"""
-                    SELECT discord_id
-                    FROM {table}
-                    WHERE discord_id = $1
-                    """
+        if table == 'members':
+            table = ActiveMembers
 
-            row = await connection.fetchval(query, discord_id)
+        if table == 'banned_members':
+            table = BannedMembers
 
-            if row is None:
-                raise MemberError
+        if table == 'removed_members':
+            table = RemovedMembers
 
-            return row
+        row = await table.select('discord_id').where(
+            table.discord_id == discord_id
+        ).gino.scalar()
+
+        if row is None:
+            raise MemberError
+
+        return row
 
 
-async def get_member_by_discriminator(self, ctx, member_name: str, member_discriminators: List[str], table: str):
+async def get_member_by_discriminator(self, ctx, member_name: str, member_discriminators, table: str):
     """
     A function to get a member by discriminator to discern between
     members with identical account names or nicknames.
@@ -103,22 +111,15 @@ async def get_member_by_discriminator(self, ctx, member_name: str, member_discri
     except asyncio.TimeoutError:
         raise
     else:
-        async with self.viking.postgresql.acquire() as connection:
-            query = f"""
-                    SELECT discord_id
-                    FROM {table}
-                    WHERE lower(name) = $1 AND discriminator = $2
-                    OR lower(nickname) = $1 AND discriminator = $2
-                    """
-
-            return await connection.fetchval(
-                query,
-                member_name,
-                message.content
-            )
+        return await ActiveMembers.select('discord_id').where(
+            (database.func.lower(ActiveMembers.name) == member_name) &
+            (ActiveMembers.discriminator == message.content) |
+            (database.func.lower(ActiveMembers.nickname) == member_name) &
+            (ActiveMembers.discriminator == message.content)
+        ).gino.scalar()
 
 
-async def show_identical_members(self, ctx, rows: List[asyncpg.Record]):
+async def show_identical_members(self, ctx, rows):
     """
     A function that will output each member with an identical account
     name or nickname.
@@ -131,6 +132,7 @@ async def show_identical_members(self, ctx, rows: List[asyncpg.Record]):
     )
 
     for row in rows:
+        row = dict(row)
         member = Member(row)
 
         embed.add_field(name='Account Name', value=member.name)
@@ -150,32 +152,39 @@ async def get_member_by_name(self, ctx, member_name: str, table: str):
     database.
     """
 
-    async with self.viking.postgresql.acquire() as connection:
-        query = f"""
-                SELECT discord_id,
-                       name,
-                       discriminator,
-                       nickname
-                FROM {table}
-                WHERE lower(name) = $1
-                OR lower(nickname) = $1
-                """
+    rows = await ActiveMembers.select(
+        'discord_id',
+        'name',
+        'discriminator',
+        'nickname'
+    ).where(
+        (database.func.lower(ActiveMembers.name) == member_name) |
+        (database.func.lower(ActiveMembers.nickname) == member_name)
+    ).gino.all()
 
-        rows = await connection.fetch(query, member_name)
+    if len(rows) == 0:
+        raise MemberError
 
-        if len(rows) == 0:
-            raise MemberError
+    if len(rows) == 1:
+        for row in rows:
+            row = dict(row)
+            return row.get('discord_id')
 
-        if len(rows) == 1:
-            return await connection.fetchval(query, member_name)
+    if len(rows) > 1:
+        await show_identical_members(self, ctx, rows)
 
-        if len(rows) > 1:
-            await show_identical_members(self, ctx, rows)
-            member_discriminators = [row.get('discriminator') for row in rows]
-            return await get_member_by_discriminator(
-                self,
-                ctx,
-                member_name,
-                member_discriminators,
-                table
+        member_discriminators = []
+
+        for row in rows:
+            row = dict(row)
+            member_discriminators.append(
+                row.get('discriminator')
             )
+
+        return await get_member_by_discriminator(
+            self,
+            ctx,
+            member_name,
+            member_discriminators,
+            table
+        )

@@ -1,6 +1,5 @@
 import discord
 from discord.ext import commands
-from typing import Tuple
 from utilities.request import fetch
 
 
@@ -9,35 +8,35 @@ class Mode:
         self._mode = data.get('stats').get(key)
 
     @property
-    def kills(self) -> str:
+    def kills(self):
         if self._mode is None:
             return '0'
 
         return self._mode.get('kills').get('displayValue')
 
     @property
-    def matches(self) -> str:
+    def matches(self):
         if self._mode is None:
             return '0'
 
         return self._mode.get('matches').get('displayValue')
 
     @property
-    def wlr(self) -> str:
+    def wlr(self):
         if self._mode is None:
             return '0.00'
 
         return self._mode.get('winRatio').get('displayValue')
 
     @property
-    def kdr(self) -> str:
+    def kdr(self):
         if self._mode is None:
             return '0.00'
 
         return self._mode.get('kd').get('displayValue')
 
     @property
-    def wins(self) -> str:
+    def wins(self):
         if self._mode is None:
             return '0'
 
@@ -54,9 +53,9 @@ class Lifetime:
         self._squad = squad
 
     @staticmethod
-    def sumof(*args: Tuple[str]) -> int:
+    def sumof(*args):
         """
-        A function to convert a tuple of numeric strings to integers,
+        A function to convert a tuple of strings to integers,
         and then add the sum of the integers.
         """
 
@@ -64,7 +63,7 @@ class Lifetime:
         return sum(integers)
 
     @property
-    def kills(self) -> str:
+    def kills(self):
         total = self.sumof(
             self._solo.kills,
             self._duo.kills,
@@ -74,7 +73,7 @@ class Lifetime:
         return f"{total:,}"
 
     @property
-    def matches(self) -> str:
+    def matches(self):
         total = self.sumof(
             self._solo.matches,
             self._duo.matches,
@@ -84,7 +83,7 @@ class Lifetime:
         return f"{total:,}"
 
     @property
-    def wlr(self) -> str:
+    def wlr(self):
         wins = self.sumof(
             self._solo.wins,
             self._duo.wins,
@@ -101,7 +100,7 @@ class Lifetime:
         return f"{total:.2f}"
 
     @property
-    def kdr(self) -> str:
+    def kdr(self):
         kills = self.sumof(
             self._solo.kills,
             self._duo.kills,
@@ -124,7 +123,7 @@ class Lifetime:
         return f"{total:.2f}"
 
     @property
-    def wins(self) -> str:
+    def wins(self):
         total = self.sumof(
             self._solo.wins,
             self._duo.wins,
@@ -166,7 +165,7 @@ class Fortnite(commands.Cog):
             data = await fetch(self.session, url, headers=self.headers)
 
             # If a username is not found, the API responds with an error
-            # message in a dictionary with a single key-value pair.
+            # message in a JSON object with a single key-value pair.
 
             if len(data) > 1:
                 solo = Mode(data, 'p2')

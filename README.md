@@ -5,9 +5,8 @@ Viking is a bot that uses [discord.py](https://github.com/Rapptz/discord.py).
 ## Getting Started
 
 You will need:
-* [Python 3.7](https://www.python.org/downloads/)
+* [Python 3.7+](https://www.python.org/downloads/)
 * [PostgreSQL 11](https://www.postgresql.org/download/)
-* [Redis 5](https://redis.io/download)
 
 ## Requirements
 
@@ -29,6 +28,26 @@ $ pip install -r requirements.txt
 ***wipe**
 * Viking wipes all log files.
 
+### **Audio**
+
+***play \<sound>**
+* Viking plays a sound from the soundbank that matches the member's query.
+
+***pause**
+* Viking pauses the current sound.
+
+***resume**
+* Viking resumes the current sound.
+
+***skip**
+* Viking skips the current sound, and plays the next sound in the queue.
+
+***stop**
+* Viking stops the current sound, and removes any items from the queue.
+
+***soundbank**
+* Viking displays every sound in the soundbank.
+
 ### **Basic**
 
 ***coinflip**
@@ -46,6 +65,9 @@ $ pip install -r requirements.txt
 ***hello**
 * Viking responds with a random greeting.
 
+***mock**
+* Viking "mocks" a message.
+
 ***quotes**
 * Viking displays a random quotation.
 
@@ -60,17 +82,6 @@ $ pip install -r requirements.txt
 
 ***uptime**
 * Viking displays it's uptime.
-
-### **Database**
-
-***drop**
-* Viking drops all tables in the database.
-
-***run**
-* Viking executes the necessary queries to create the database.
-
-***truncate \<table>**
-* Viking truncates a table in the database.
 
 ### **Discord**
 
@@ -152,6 +163,14 @@ solo, duo, squad and lifetime data.
 ***joined \<member>**
 * Viking displays the date of when a member joined the guild.
 
+### **Migration**
+
+***drop**
+* Viking drops all tables in the database.
+
+***run**
+* Viking executes all queries to create the database.
+
 ### **Moderation**
 
 ***afk \<member>**
@@ -196,7 +215,7 @@ solo, duo, squad and lifetime data.
 ***softmute \<seconds> \<member>**
 * Viking soft-mutes a member by name, nickname or ID.
 
-***softrestricts \<seconds> \<member>**
+***softrestrict \<seconds> \<member>**
 * Viking soft-restricts a member by name, nickname or ID.
 
 ***unban \<member>**
@@ -208,11 +227,25 @@ solo, duo, squad and lifetime data.
 ***unload \<extension>**
 * Viking unloads an extension.
 
-***unmutes \<member>**
+***unmute \<member>**
 * Viking unmutes a member by name, nickname or ID.
 
 ***unrestrict \<member>**
 * Viking unrestricts a member by name, nickname or ID.
+
+### **NHL**
+
+***nhl game \<team>**
+* Viking displays information about an active, completed or upcoming game from today.
+
+***nhl player \<player>**
+* Viking displays trivial information about a player, and their statistics from the current season.
+
+***nhl schedule**
+* Viking displays information about every game occuring today.
+
+***nhl team \<team>**
+* Viking displays trivial information about a team.
 
 ### **Roles**
 

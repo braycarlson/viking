@@ -1,7 +1,7 @@
 import re
 from datetime import datetime
 from dateutil import tz
-from typing import Any, List
+from random import randint
 
 
 SYMBOLS = {
@@ -13,16 +13,26 @@ SYMBOLS = {
 }
 
 
-def alpha(string: str) -> str:
+def alphabet(string: str):
     """
-    A function to filter a string to only allow alpha characters.
+    A function to filter a string to only allow alphabetical characters.
     """
 
     pattern = re.compile('[^a-zA-Z]+')
     return pattern.sub('', string)
 
 
-def get_symbol(symbol: str) -> str:
+def alphabet_and_spaces(string: str):
+    """
+    A function to filter a string to only allow alphabetical characters
+    and spaces.
+    """
+
+    pattern = re.compile('[^a-zA-Z ]+')
+    return pattern.sub('', string)
+
+
+def get_symbol(symbol: str):
     """
     A function to check for the existence of a specified symbol.
     """
@@ -33,37 +43,37 @@ def get_symbol(symbol: str) -> str:
     return symbol
 
 
-def format_list(items: List[Any], **kwargs) -> str:
+def format_list(items, **kwargs):
     """
     A function to format a list, so it is readable when it is output
     to Discord.
     """
 
     result = []
-    key = kwargs.get('key')
     sort = kwargs.get('sort')
+    enumerate = kwargs.get('enumerate')
     symbol = kwargs.get('symbol')
     symbol = get_symbol(symbol)
 
     if sort:
         items = sorted(items)
 
-    for item in items:
-        if item is None:
-            item = 'None'
+    if enumerate:
+        return '\n'.join(items)
 
-        if key is not None:
-            item = item.get(key)
+    if symbol is not None:
+        for item in items:
+            if symbol == '*':
+                result.append(f"{symbol}{item}")
+            else:
+                result.append(f"{symbol} {item}")
 
-        if symbol is None:
-            result.append(item)
-        else:
-            result.append(f"{symbol} {item}")
+        return '\n'.join(result)
 
-    return '\n'.join(result)
+    return ', '.join(items)
 
 
-def format_time(time: int, unit: str, delimiter=False) -> str:
+def format_time(time: int, unit: str, delimiter=False):
     """
     A function to format a unit of time, so it is readable when it is
     output to Discord.
@@ -83,7 +93,7 @@ def format_time(time: int, unit: str, delimiter=False) -> str:
     return ''
 
 
-def format_utc(date: int) -> str:
+def format_utc(date: int):
     """
     A function to convert UTC to a local timezone, then output it in a
     readable format.
@@ -98,3 +108,24 @@ def format_utc(date: int) -> str:
     string = local.strftime('%B %d, %Y at %I:%M %p')
 
     return string
+
+
+def random_case(string: str):
+    """
+    A function to convert a string to "random case".
+    """
+
+    result = ''
+
+    for index, character in enumerate(string, 1):
+        if character == 'i' or index == 1:
+            result += character.lower()
+        else:
+            integer = randint(0, 1)
+
+            if integer == 0:
+                result += character.upper()
+            else:
+                result += character.lower()
+
+    return result

@@ -1,5 +1,6 @@
 import discord
 import logging
+from database.model import GuildRoles
 from discord.ext import commands
 from utilities.event import RoleEvent
 from utilities.member import MemberError, get_member_by_id
@@ -85,7 +86,7 @@ class Roles(commands.Cog):
 
         check = await check_for_role(self, name)
 
-        if check is False:
+        if check is None:
             try:
                 permissions = discord.Permissions.none()
                 await ctx.guild.create_role(name=name, permissions=permissions)
@@ -107,7 +108,7 @@ class Roles(commands.Cog):
 
         check = await check_for_role(self, name)
 
-        if check is True:
+        if check is not None:
             for guild in self.viking.guilds:
                 role = discord.utils.get(guild.roles, name=name)
 
@@ -161,55 +162,52 @@ class Roles(commands.Cog):
         else:
             embed = discord.Embed(color=self.viking.color)
 
-            async with self.viking.postgresql.acquire() as connection:
-                query = """
-                        SELECT *
-                        FROM roles
-                        WHERE id = $1
-                        """
+            row = dict(
+                await GuildRoles
+                    .query.execution_options(return_model=False)
+                    .where(GuildRoles.id == role_id)
+                    .gino.first()
+            )
 
-                rows = await connection.fetch(query, role_id)
+            role = Role(row)
 
-                for row in rows:
-                    role = Role(row)
+            embed.add_field(
+                inline=False,
+                name='Role ID',
+                value=role.id
+            )
+            embed.add_field(
+                inline=False,
+                name='Name',
+                value=role.name
+            )
+            embed.add_field(
+                inline=False,
+                name='Colour',
+                value=role.colour
+            )
+            embed.add_field(
+                inline=False,
+                name='Hoist',
+                value=role.hoist
+            )
+            embed.add_field(
+                inline=False,
+                name='Position',
+                value=role.position
+            )
+            embed.add_field(
+                inline=False,
+                name='Mentionable',
+                value=role.mentionable
+            )
+            embed.add_field(
+                inline=False,
+                name='Created At',
+                value=role.created
+            )
 
-                embed.add_field(
-                    inline=False,
-                    name='Role ID',
-                    value=role.id
-                )
-                embed.add_field(
-                    inline=False,
-                    name='Name',
-                    value=role.name
-                )
-                embed.add_field(
-                    inline=False,
-                    name='Colour',
-                    value=role.colour
-                )
-                embed.add_field(
-                    inline=False,
-                    name='Hoist',
-                    value=role.hoist
-                )
-                embed.add_field(
-                    inline=False,
-                    name='Position',
-                    value=role.position
-                )
-                embed.add_field(
-                    inline=False,
-                    name='Mentionable',
-                    value=role.mentionable
-                )
-                embed.add_field(
-                    inline=False,
-                    name='Created At',
-                    value=role.created
-                )
-
-                await ctx.send(embed=embed)
+            await ctx.send(embed=embed)
 
 
 def setup(viking):

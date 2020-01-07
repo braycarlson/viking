@@ -4,7 +4,7 @@ import time
 from discord.ext import commands
 from json import JSONDecodeError
 from random import randint, choice
-from utilities.format import format_time
+from utilities.format import format_time, random_case
 from utilities.request import fetch
 
 
@@ -92,6 +92,19 @@ class Basic(commands.Cog):
         )
 
         await ctx.send(choice(choices))
+
+    @commands.command()
+    async def mock(self, ctx, *, message: str):
+        """
+        *mock <message>
+
+        A command that "mocks" a message.
+        """
+
+        await ctx.message.delete()
+
+        message = random_case(message)
+        await ctx.send(message)
 
     @commands.command()
     async def quotes(self, ctx):

@@ -2,7 +2,7 @@ from discord.ext import commands
 
 
 def is_channel(channel_id: int):
-    async def predicate(ctx) -> bool:
+    async def predicate(ctx):
         if (ctx.channel.id != channel_id and
                 ctx.guild is not None and ctx.invoked_with != 'help'):
             await ctx.message.delete(delay=15.0)

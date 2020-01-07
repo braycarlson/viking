@@ -1,10 +1,19 @@
 import logging
 import os
 import paramiko
+from configparser import RawConfigParser
+from database.model import database
 from discord.ext import commands
 
 
 log = logging.getLogger(__name__)
+configuration = RawConfigParser()
+configuration.read(os.path.join(
+    os.path.dirname(
+        os.path.dirname(__file__)
+    ),
+    'config.ini')
+)
 
 
 class Administration(commands.Cog):
@@ -33,8 +42,7 @@ class Administration(commands.Cog):
         await ctx.message.delete()
 
         log.info('Viking is offline.')
-        self.viking.redis.close()
-        await self.viking.postgresql.close()
+        await database.pop_bind().close()
         await self.viking.session.close()
         await self.viking.logout()
 
@@ -57,19 +65,15 @@ class Administration(commands.Cog):
             )
         )
         client.connect(
-            hostname='192.168.0.21',
-            username='brayden',
-            key_filename=os.path.join(
-                self.viking.root,
-                'private_key.pem'
-            )
+            hostname=configuration['paramiko']['hostname'],
+            username=configuration['paramiko']['username'],
+            password=configuration['paramiko']['password'],
         )
         client.exec_command('sudo /sbin/reboot')
         client.close()
 
         log.info('Viking is restarting.')
-        self.viking.redis.close()
-        await self.viking.postgresql.close()
+        await database.pop_bind().close()
         await self.viking.session.close()
         await self.viking.logout()
 

@@ -1,3 +1,6 @@
+from database.model import database, GuildRoles
+
+
 class RoleError(Exception):
     """
     A RoleError is raised when a role is not found in the database
@@ -31,17 +34,11 @@ async def check_for_role(self, name: str):
 
     name = name.lower()
 
-    async with self.viking.postgresql.acquire() as connection:
-        query = """
-                SELECT
-                EXISTS(
-                    SELECT id
-                    FROM roles
-                    WHERE lower(name) = $1
-                )
-                """
+    role = await GuildRoles.query.where(
+        database.func.lower(GuildRoles.name) == name
+    ).gino.scalar()
 
-        return await connection.fetchval(query, name)
+    return role
 
 
 async def get_role_by_id(self, identifier: str):
@@ -55,19 +52,14 @@ async def get_role_by_id(self, identifier: str):
         role = identifier.lower()
         return await get_role_by_name(self, role)
     else:
-        async with self.viking.postgresql.acquire() as connection:
-            query = f"""
-                    SELECT id
-                    FROM roles
-                    WHERE id = $1
-                    """
+        row = await GuildRoles.select('id').where(
+            GuildRoles.id == role_id
+        ).gino.scalar()
 
-            row = await connection.fetchval(query, role_id)
+        if row is None:
+            raise RoleError
 
-            if row is None:
-                raise RoleError
-
-            return row
+        return row
 
 
 async def get_role_by_name(self, role_name: str):
@@ -75,17 +67,11 @@ async def get_role_by_name(self, role_name: str):
     A function to get a role by name from the database.
     """
 
-    async with self.viking.postgresql.acquire() as connection:
-        query = f"""
-                SELECT id
-                FROM roles
-                WHERE lower(name) = $1
-                """
+    row = await GuildRoles.query.where(
+        database.func.lower(GuildRoles.name) == role_name
+    ).gino.scalar()
 
-        rows = await connection.fetch(query, role_name)
+    if row is None:
+        raise RoleError
 
-        if len(rows) == 0:
-            raise RoleError
-
-        if len(rows) == 1:
-            return await connection.fetchval(query, role_name)
+    return row

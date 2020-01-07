@@ -6,6 +6,7 @@ import sys
 import time
 import traceback
 from configparser import RawConfigParser
+from database.model import database, PublicCommands
 from datetime import datetime
 from discord.ext import commands
 from tabulate import tabulate
@@ -48,7 +49,6 @@ class Viking(commands.Bot):
 
         # Database
         self.postgresql_uri = configuration['database']['postgresql']
-        self.redis_uri = configuration['database']['redis']
 
         # API
         self.lol_api_key = configuration['lol']['key']
@@ -83,31 +83,26 @@ class Viking(commands.Bot):
             )
 
         elif isinstance(error, commands.CommandNotFound):
-            async with self.postgresql.acquire() as connection:
-                query = """
-                        SELECT name
-                        FROM public_commands
-                        WHERE levenshtein(name, $1) <= 2
-                        LIMIT 5;
-                        """
+            rows = await PublicCommands.select('name').where(
+                database.func.levenshtein(PublicCommands.name, ctx.invoked_with) <= 2
+            ).limit(5).gino.all()
 
-                suggestions = await connection.fetch(query, ctx.invoked_with)
+            if len(rows) > 0:
+                suggestions = [dict(row).get('name') for row in rows]
 
-                if len(suggestions) > 0:
-                    suggestion = format_list(
-                        suggestions,
-                        key='name',
-                        symbol='asterisk',
-                        sort=False
-                    )
-                    embed = discord.Embed(color=self.color)
-                    embed.add_field(
-                        name='Command not found. Did you mean...',
-                        value=suggestion
-                    )
-                    await ctx.send(embed=embed)
-                else:
-                    await ctx.send('Command not found.')
+                suggestion = format_list(
+                    suggestions,
+                    symbol='asterisk',
+                    sort=False
+                )
+                embed = discord.Embed(color=self.color)
+                embed.add_field(
+                    name='Command not found. Did you mean...',
+                    value=suggestion
+                )
+                await ctx.send(embed=embed)
+            else:
+                await ctx.send('Command not found.')
 
         elif isinstance(
             error, (commands.BadArgument,
@@ -128,6 +123,7 @@ class Viking(commands.Bot):
         connected to Discord.
         """
 
+        await database.set_bind(self.postgresql_uri)
         log.info(f"{self.bot_name} is connected.")
 
     async def on_message(self, message: discord.Message):
@@ -136,7 +132,7 @@ class Viking(commands.Bot):
         including Viking.
         """
 
-        if message.author.bot:
+        if message.author.bot or message.content.startswith('*') and message.content.endswith('*'):
             return
 
         await self.process_commands(message)

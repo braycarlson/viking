@@ -107,9 +107,8 @@ ENV/
 known_hosts
 
 # Viking
+*.mp3
 *.sh
-api.txt
 cogs/random.py
-downloads/
 images/
 logs/

@@ -2,6 +2,7 @@ import asyncio
 import discord
 import logging
 from asyncio import TimeoutError
+from database.model import HiddenCommands
 from discord.ext import commands
 from utilities.format import format_list
 from utilities.member import MemberError, get_member_by_id
@@ -35,6 +36,11 @@ class Moderation(commands.Cog):
                 await channel.purge()
 
     async def chat_restrict(self):
+        """
+        A function that changes Discord permissions to chat restrict
+        a member.
+        """
+
         overwrite = discord.PermissionOverwrite()
 
         overwrite.send_messages = False
@@ -169,23 +175,17 @@ class Moderation(commands.Cog):
         for administrators/moderators to use.
         """
 
-        async with self.viking.postgresql.acquire() as connection:
-            query = """
-                    SELECT name
-                    FROM hidden_commands
-                    """
+        rows = await HiddenCommands.select('name').gino.all()
+        commands = [dict(row).get('name') for row in rows]
 
-            rows = await connection.fetch(query)
-
-            commands = format_list(
-                rows,
-                key='name',
-                symbol='asterisk',
-                sort=True
-            )
+        command = format_list(
+            commands,
+            symbol='asterisk',
+            sort=True
+        )
 
         embed = discord.Embed(color=self.viking.color)
-        embed.add_field(name='Hidden Commands', value=commands)
+        embed.add_field(name='Hidden Commands', value=command)
         await ctx.send(embed=embed)
 
     @commands.command(hidden=True)
@@ -406,7 +406,10 @@ class Moderation(commands.Cog):
                 if seconds <= 3600:
                     for channel in ctx.guild.text_channels:
                         overwrite = await self.chat_restrict()
-                        await channel.set_permissions(member, overwrite=overwrite)
+                        await channel.set_permissions(
+                            member,
+                            overwrite=overwrite
+                        )
                 else:
                     await ctx.send('A soft-restrict must be less than an hour.')
             except discord.HTTPException:
@@ -438,7 +441,7 @@ class Moderation(commands.Cog):
                 self,
                 ctx,
                 identifier,
-                table='banned'
+                table='banned_members'
             )
         except MemberError:
             await ctx.send('No member found.')

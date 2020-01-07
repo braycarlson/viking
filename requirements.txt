@@ -1,5 +1,4 @@
 aiodns
-aioredis
 asyncpg
 cchardet
 discord.py[voice]
