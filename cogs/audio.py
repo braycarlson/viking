@@ -4,7 +4,7 @@ import os
 import sys
 from async_timeout import timeout
 from discord.ext import commands
-from fuzzywuzzy import process
+from rapidfuzz import process
 from random import choice
 from utilities.format import format_list
 
@@ -75,11 +75,10 @@ class Audio(commands.Cog):
             if query == filename:
                 return sound
 
-        match = process.extractOne(query, sounds)
-        filename, score = match
+        match = process.extractOne(query, sounds, score_cutoff=75)
 
-        if score > 75:
-            return filename
+        if match:
+            return match[0]
 
         return None
 

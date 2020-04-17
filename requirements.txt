@@ -2,11 +2,10 @@ aiodns
 asyncpg
 cchardet
 discord.py[voice]
-fuzzywuzzy[speedup]
 paramiko
 pipdeptree
 pip-upgrader
 python-dateutil
-python-Levenshtein
+rapidfuzz
 tabulate
 uvloop; sys_platform == 'linux'

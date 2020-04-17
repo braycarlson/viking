@@ -1,5 +1,5 @@
 from database.model import LoLChampions, LoLSpells
-from fuzzywuzzy import process
+from rapidfuzz import process
 from utilities.format import format_list
 from utilities.request import fetch
 

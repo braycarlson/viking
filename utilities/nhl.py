@@ -2,7 +2,7 @@ import discord
 from asyncio import TimeoutError
 from database.model import NHLTeams, NHLPlayers
 from datetime import datetime
-from fuzzywuzzy import process
+from rapidfuzz import process
 from utilities.format import format_list
 from utilities.request import fetch
 
