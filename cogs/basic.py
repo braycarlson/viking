@@ -3,7 +3,8 @@ import discord
 import time
 from discord.ext import commands
 from json import JSONDecodeError
-from random import randint, choice
+from math import floor
+from random import choice, randint, sample
 from utilities.format import format_time, random_case
 from utilities.request import fetch
 
@@ -30,7 +31,7 @@ class Basic(commands.Cog):
         await ctx.send(choice(choices))
 
     @commands.command()
-    async def count(self, ctx, *, message: str):
+    async def count(self, ctx, *, message):
         """
         *count <message>
 
@@ -52,7 +53,42 @@ class Basic(commands.Cog):
         await ctx.send(choices)
 
     @commands.command()
-    async def eightball(self, ctx, *, question: str):
+    @commands.has_any_role('Administrator', 'Moderator', 'OG')
+    async def divide(self, ctx):
+        """
+        *divide
+
+        A command that divides members into groups.
+        """
+
+        if ctx.author.voice:
+            members = ctx.author.voice.channel.members
+            length = len(members)
+
+            if length > 1:
+                restricted_channel = [
+                    716005110312075336,  # Programming
+                    589330980339187733,  # Two's Company
+                    589331073578827776,  # Three's A Crowd
+                    196539941826592768   # Valhalla
+                ]
+
+                amount = int(floor(length / 2))
+                selected = sample(members, amount)
+
+                channel_list = []
+
+                for channel in ctx.guild.voice_channels:
+                    if not channel.members and channel.id not in restricted_channel:
+                        channel_list.append(channel)
+
+                new_channel = choice(channel_list)
+
+                for member in selected:
+                    await member.move_to(new_channel)
+
+    @commands.command()
+    async def eightball(self, ctx, *, question):
         """
         *eightball <question>
 
@@ -94,7 +130,7 @@ class Basic(commands.Cog):
         await ctx.send(choice(choices))
 
     @commands.command()
-    async def mock(self, ctx, *, message: str):
+    async def mock(self, ctx, *, message):
         """
         *mock <message>
 
@@ -142,7 +178,7 @@ class Basic(commands.Cog):
             await ctx.send(embed=embed)
 
     @commands.command()
-    async def repeat(self, ctx, amount: int, *, message: str):
+    async def repeat(self, ctx, amount, *, message):
         """
         *repeat <amount> <message>
 
@@ -156,7 +192,7 @@ class Basic(commands.Cog):
             await ctx.send('Please use a number less than or equal to five.')
 
     @commands.command()
-    async def reverse(self, ctx, *, message: str):
+    async def reverse(self, ctx, *, message):
         """
         *reverse <message>
 
@@ -167,7 +203,7 @@ class Basic(commands.Cog):
         await ctx.send(' '.join(reversed(message)))
 
     @commands.command()
-    async def tts(self, ctx, *, message: str):
+    async def tts(self, ctx, *, message):
         """
         *tts <message>
 

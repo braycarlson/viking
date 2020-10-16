@@ -72,7 +72,7 @@ class Weather(commands.Cog):
 
     @commands.command()
     @commands.cooldown(rate=60, per=60.0, type=commands.BucketType.default)
-    async def forecast(self, ctx, *, location: str):
+    async def forecast(self, ctx, *, location):
         """
         *forecast <location>
 

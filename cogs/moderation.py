@@ -51,7 +51,7 @@ class Moderation(commands.Cog):
 
     @commands.command(hidden=True)
     @commands.has_any_role('Administrator', 'Moderator')
-    async def afk(self, ctx, identifier: str):
+    async def afk(self, ctx, identifier):
         """
         *afk <identifier>
 
@@ -71,14 +71,14 @@ class Moderation(commands.Cog):
             try:
                 await member.edit(voice_channel=ctx.guild.afk_channel)
             except discord.HTTPException:
-                await ctx.send(f"{member} could not be moved to North Korea.")
+                await ctx.send(f"{member} could not be moved to Valhalla.")
             else:
-                log.info(f"{ctx.author} moved {member} to North Korea.")
+                log.info(f"{ctx.author} moved {member} to Valhalla.")
 
     @commands.command(hidden=True)
     @commands.bot_has_permissions(ban_members=True)
     @commands.has_any_role('Administrator', 'Moderator')
-    async def ban(self, ctx, *, identifier: str):
+    async def ban(self, ctx, *, identifier):
         """
         *ban <identifier>
 
@@ -103,7 +103,7 @@ class Moderation(commands.Cog):
 
     @commands.command(hidden=True)
     @commands.has_any_role('Administrator', 'Moderator')
-    async def clear(self, ctx, limit: int):
+    async def clear(self, ctx, limit):
         """
         *clear <limit>
 
@@ -116,7 +116,7 @@ class Moderation(commands.Cog):
 
     @commands.command(hidden=True)
     @commands.has_any_role('Administrator', 'Moderator')
-    async def deafen(self, ctx, identifier: str):
+    async def deafen(self, ctx, identifier):
         """
         *deafen <identifier>
 
@@ -141,7 +141,7 @@ class Moderation(commands.Cog):
 
     @commands.command(hidden=True)
     @commands.has_any_role('Administrator', 'Moderator')
-    async def disconnect(self, ctx, identifier: str):
+    async def disconnect(self, ctx, identifier):
         """
         *disconnect <identifier>
 
@@ -191,7 +191,7 @@ class Moderation(commands.Cog):
     @commands.command(hidden=True)
     @commands.bot_has_permissions(kick_members=True)
     @commands.has_any_role('Administrator', 'Moderator')
-    async def kick(self, ctx, identifier: str):
+    async def kick(self, ctx, identifier):
         """
         *kick <identifier>
 
@@ -216,7 +216,7 @@ class Moderation(commands.Cog):
 
     @commands.command(hidden=True)
     @commands.has_any_role('Administrator', 'Moderator')
-    async def load(self, ctx, *, extension: str):
+    async def load(self, ctx, *, extension):
         """
         *load <extension>
 
@@ -234,7 +234,7 @@ class Moderation(commands.Cog):
 
     @commands.command(hidden=True)
     @commands.has_any_role('Administrator', 'Moderator')
-    async def mute(self, ctx, identifier: str):
+    async def mute(self, ctx, identifier):
         """
         *mute <identifier>
 
@@ -270,7 +270,7 @@ class Moderation(commands.Cog):
 
     @commands.command(hidden=True)
     @commands.has_any_role('Administrator', 'Moderator')
-    async def reload(self, ctx, *, extension: str):
+    async def reload(self, ctx, *, extension):
         """
         *reload <extension>
 
@@ -289,7 +289,7 @@ class Moderation(commands.Cog):
 
     @commands.command(hidden=True)
     @commands.has_any_role('Administrator', 'Moderator')
-    async def restrict(self, ctx, *, identifier: str):
+    async def restrict(self, ctx, *, identifier):
         """
         *restrict <identifier>
 
@@ -316,7 +316,7 @@ class Moderation(commands.Cog):
 
     @commands.command(hidden=True)
     @commands.has_any_role('Administrator', 'Moderator')
-    async def softdeafen(self, ctx, seconds: int, *, identifier: str):
+    async def softdeafen(self, ctx, seconds, *, identifier):
         """
         *softdeafen <seconds> <identifier>
 
@@ -351,7 +351,7 @@ class Moderation(commands.Cog):
 
     @commands.command(hidden=True)
     @commands.has_any_role('Administrator', 'Moderator')
-    async def softmute(self, ctx, seconds: int, *, identifier: str):
+    async def softmute(self, ctx, seconds, *, identifier):
         """
         *softmute <seconds> <identifier>
 
@@ -386,7 +386,7 @@ class Moderation(commands.Cog):
 
     @commands.command(hidden=True)
     @commands.has_any_role('Administrator', 'Moderator')
-    async def softrestrict(self, ctx, seconds: int, *, identifier: str):
+    async def softrestrict(self, ctx, seconds, *, identifier):
         """
         *softrestrict <seconds> <identifier>
 
@@ -429,7 +429,7 @@ class Moderation(commands.Cog):
     @commands.command(hidden=True)
     @commands.bot_has_permissions(ban_members=True)
     @commands.has_any_role('Administrator', 'Moderator')
-    async def unban(self, ctx, *, identifier: str):
+    async def unban(self, ctx, *, identifier):
         """
         *unban <identifier>
 
@@ -459,7 +459,7 @@ class Moderation(commands.Cog):
 
     @commands.command(hidden=True)
     @commands.has_any_role('Administrator', 'Moderator')
-    async def undeafen(self, ctx, identifier: str):
+    async def undeafen(self, ctx, identifier):
         """
         *undeafen <identifier>
 
@@ -484,7 +484,7 @@ class Moderation(commands.Cog):
 
     @commands.command(hidden=True)
     @commands.has_any_role('Administrator', 'Moderator')
-    async def unload(self, ctx, *, extension: str):
+    async def unload(self, ctx, *, extension):
         """
         *unload <extension>
 
@@ -502,7 +502,7 @@ class Moderation(commands.Cog):
 
     @commands.command(hidden=True)
     @commands.has_any_role('Administrator', 'Moderator')
-    async def unmute(self, ctx, identifier: str):
+    async def unmute(self, ctx, identifier):
         """
         *unmute <identifier>
 
@@ -527,7 +527,7 @@ class Moderation(commands.Cog):
 
     @commands.command(hidden=True)
     @commands.has_any_role('Administrator', 'Moderator')
-    async def unrestrict(self, ctx, *, identifier: str):
+    async def unrestrict(self, ctx, *, identifier):
         """
         *unrestrict <identifier>
 

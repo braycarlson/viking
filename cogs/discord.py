@@ -24,9 +24,13 @@ class Discord(commands.Cog):
         guild.
         """
 
-        rows = await ActiveMembers.select('display_name').where(
-            ActiveMembers.role_id == self.administrator
-        ).gino.all()
+        rows = (
+            await ActiveMembers
+            .select('display_name')
+            .where(ActiveMembers.role_id == self.administrator)
+            .gino
+            .all()
+        )
 
         names = [dict(row).get('display_name') for row in rows]
 
@@ -71,9 +75,13 @@ class Discord(commands.Cog):
         A command that displays the names of the moderators in the guild.
         """
 
-        rows = await ActiveMembers.select('display_name').where(
-            ActiveMembers.role_id == self.moderator
-        ).gino.all()
+        rows = (
+            await ActiveMembers
+            .select('display_name')
+            .where(ActiveMembers.role_id == self.moderator)
+            .gino
+            .all()
+        )
 
         names = [dict(row).get('display_name') for row in rows]
 

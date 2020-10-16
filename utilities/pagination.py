@@ -14,9 +14,7 @@ class Pages:
         if extra:
             pages += 1
         self.maximum_pages = pages
-        self.embed = discord.Embed(
-            colour=discord.Colour.purple()
-        )
+        self.embed = discord.Embed(colour=discord.Colour.purple())
         self.paginating = len(entries) > per_page
         self.reactions = [
             ('\N{BLACK LEFT-POINTING TRIANGLE}', self.previous_page),

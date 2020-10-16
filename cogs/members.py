@@ -20,7 +20,7 @@ class Members(commands.Cog):
     # Event Listeners
 
     @commands.Cog.listener()
-    async def on_member_join(self, member: discord.Member):
+    async def on_member_join(self, member):
         """
         An event that is called when a member joins the guild.
         """
@@ -45,7 +45,7 @@ class Members(commands.Cog):
             await self.event.member_delete(member.id, table='removed_members')
 
     @commands.Cog.listener()
-    async def on_member_update(self, before: discord.Member, after: discord.Member):
+    async def on_member_update(self, before, after):
         """
         An event that is called when a member changes their status, game,
         nickname or role.
@@ -61,7 +61,7 @@ class Members(commands.Cog):
             await self.event.member_role_update(before, after)
 
     @commands.Cog.listener()
-    async def on_member_ban(self, guild: discord.Guild, member: discord.Member):
+    async def on_member_ban(self, guild, member):
         """
         An event that is called when a member is banned from the guild.
         """
@@ -70,7 +70,7 @@ class Members(commands.Cog):
         await self.event.member_delete(member.id)
 
     @commands.Cog.listener()
-    async def on_member_unban(self, guild: discord.Guild, member: discord.Member):
+    async def on_member_unban(self, guild, member):
         """
         An event that is called when a member is unbanned from the guild.
         """
@@ -79,7 +79,7 @@ class Members(commands.Cog):
         await self.event.member_delete(member.id, table='banned_members')
 
     @commands.Cog.listener()
-    async def on_member_remove(self, member: discord.Member):
+    async def on_member_remove(self, member):
         """
         An event that is called when a member is kicked or has left the
         guild.
@@ -92,7 +92,7 @@ class Members(commands.Cog):
             await self.event.member_delete(member.id)
 
     @commands.Cog.listener()
-    async def on_user_update(self, before: discord.User, after: discord.User):
+    async def on_user_update(self, before, after):
         """
         An event that is called when a member changes their avatar,
         username or discriminator.
@@ -113,7 +113,7 @@ class Members(commands.Cog):
     # Commands
 
     @commands.command()
-    async def about(self, ctx, *, identifier: str):
+    async def about(self, ctx, *, identifier):
         """
         *about <identifier>
 
@@ -234,7 +234,7 @@ class Members(commands.Cog):
             await ctx.send(embed=embed)
 
     @commands.command()
-    async def created(self, ctx, *, identifier: str):
+    async def created(self, ctx, *, identifier):
         """
         *created <identifier>
 
@@ -265,7 +265,7 @@ class Members(commands.Cog):
             )
 
     @commands.command()
-    async def id(self, ctx, *, identifier: str):
+    async def id(self, ctx, *, identifier):
         """
         *id <identifier>
 
@@ -293,7 +293,7 @@ class Members(commands.Cog):
             await ctx.send(f"{member.name}#{member.discriminator}")
 
     @commands.command()
-    async def joined(self, ctx, *, identifier: str):
+    async def joined(self, ctx, *, identifier):
         """
         *joined <identifier>
 

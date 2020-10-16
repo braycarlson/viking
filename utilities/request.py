@@ -1,6 +1,5 @@
 import aiohttp
 import asyncio
-import os
 from functools import wraps
 
 
@@ -36,12 +35,7 @@ def error_handler(f):
 
 
 @error_handler
-async def download(
-    session: aiohttp.client.ClientSession,
-    url: str,
-    path: str,
-    **options
-):
+async def download(session, url, path, **options):
     lock = asyncio.Lock()
     async with lock:
         async with session.get(
@@ -50,8 +44,13 @@ async def download(
             raise_for_status=True,
             **options
         ) as response:
-            os.makedirs(os.path.dirname(path), exist_ok=True)
-            with open(path, 'w+b') as file:
+            directory = path.parent
+            directory.mkdir(exist_ok=True)
+
+            filename = path.name
+            path = directory / filename
+
+            with path.open('w+b') as file:
                 async for chunk in response.content.iter_chunked(1024):
                     if not chunk:
                         break
@@ -60,7 +59,7 @@ async def download(
 
 
 @error_handler
-async def fetch(session: aiohttp.client.ClientSession, url: str, **options):
+async def fetch(session, url, **options):
     async with session.get(
         url,
         timeout=15,

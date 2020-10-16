@@ -1,5 +1,5 @@
 from database.model import LoLChampions, LoLSpells
-from fuzzywuzzy import process
+from rapidfuzz import process
 from utilities.format import format_list
 from utilities.request import fetch
 
@@ -36,8 +36,7 @@ class League:
     QUEUES = {
         'RANKED_SOLO_5x5': 'Solo Queue (5v5)',
         'RANKED_FLEX_SR': 'Flex Queue (5x5)',
-        'RANKED_FLEX_TT': 'Flex Queue (3x3)',
-        'RANKED_TFT': 'Teamfight Tactics'
+        'RANKED_FLEX_TT': 'Flex Queue (3x3)'
     }
 
     def __init__(self, data):
@@ -317,9 +316,15 @@ async def get_active_game(session, params, summoner_name: str):
 
 
 async def get_champion_name(champion_id: int):
-    champion = await LoLChampions.select('name').where(
-        LoLChampions.champion_id == str(champion_id)
-    ).gino.first()
+    champion = (
+        await LoLChampions
+        .select('name')
+        .where(
+            LoLChampions.champion_id == str(champion_id)
+        )
+        .gino
+        .first()
+    )
 
     return dict(champion).get('name')
 
@@ -335,15 +340,23 @@ async def get_spell_names():
 
 
 async def get_champion_statistics(champion_name: str):
-    return await LoLChampions.query.where(
-        LoLChampions.name == champion_name
-    ).gino.first()
+    return (
+        await LoLChampions
+        .query
+        .where(LoLChampions.name == champion_name)
+        .gino
+        .first()
+    )
 
 
 async def get_spell_statistics(spell_name: str):
-    return await LoLSpells.query.where(
-        LoLSpells.name == spell_name
-    ).gino.first()
+    return (
+        await LoLSpells
+        .query
+        .where(LoLSpells.name == spell_name)
+        .gino
+        .first()
+    )
 
 
 async def search_for_champion(champion_name: str):

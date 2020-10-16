@@ -5,15 +5,18 @@ from database.model import (
     HiddenCommands,
     LoLChampions,
     LoLSpells,
+    MemberSounds,
     NHLTeams,
     NHLPlayers,
     PublicCommands
 )
+from datetime import datetime
 from discord.ext import commands
 from utilities.lol import (
     Champion,
     Spell,
     get_champions,
+    get_champion_version,
     get_spells,
     get_spell_version
 )
@@ -29,6 +32,7 @@ from utilities.nhl import (
 class Migration(commands.Cog):
     def __init__(self, viking):
         self.viking = viking
+        self.root = viking.root
         self.session = viking.session
 
     async def insert_roles(self):
@@ -53,12 +57,19 @@ class Migration(commands.Cog):
 
                 if viking_commands.aliases:
                     for alias in viking_commands.aliases:
-                        await PublicCommands.update.values(
+                        (
+                            await PublicCommands
+                            .update
+                            .values(
                                 aliases=database.func.array_prepend(
                                     alias,
                                     PublicCommands.aliases
                                 )
-                            ).where(PublicCommands.name == viking_commands.name).gino.status()
+                            )
+                            .where(PublicCommands.name == viking_commands.name)
+                            .gino
+                            .status()
+                        )
 
     async def insert_hidden_commands(self):
         for viking_commands in self.viking.commands:
@@ -67,12 +78,19 @@ class Migration(commands.Cog):
 
                 if viking_commands.aliases:
                     for alias in viking_commands.aliases:
-                        await HiddenCommands.update.values(
+                        (
+                            await HiddenCommands
+                            .update
+                            .values(
                                 aliases=database.func.array_prepend(
                                     alias,
                                     HiddenCommands.aliases
                                 )
-                            ).where(HiddenCommands.name == viking_commands.name).gino.status()
+                            )
+                            .where(HiddenCommands.name == viking_commands.name)
+                            .gino
+                            .status()
+                        )
 
     async def insert_members(self):
         for guild in self.viking.guilds:
@@ -88,6 +106,18 @@ class Migration(commands.Cog):
                     created_at=member.created_at,
                     joined_at=member.joined_at
                 )
+
+    async def insert_member_sounds(self):
+        directory = self.root.joinpath('sound/member')
+        sounds = [path for path in directory.iterdir()]
+        date = datetime.now()
+
+        for sound in sounds:
+            await MemberSounds.create(
+                name=sound.stem,
+                created_by=163227684309172224,
+                created_at=date
+            )
 
     async def insert_nhl_teams(self):
         teams = await get_teams(self.session)
@@ -170,7 +200,7 @@ class Migration(commands.Cog):
                     )
 
     async def insert_lol_champions(self):
-        version = await get_spell_version(self.session)
+        version = await get_champion_version(self.session)
         champions = await get_champions(self.session, version)
 
         for champion in champions.get('data').values():
@@ -235,6 +265,50 @@ class Migration(commands.Cog):
 
     @commands.command(hidden=True)
     @commands.is_owner()
+    async def update_public_commands(self, ctx):
+        query = await PublicCommands.select('name').gino.all()
+        database_commands = set(dict(commands).get('name') for commands in query)
+        viking_commands = set(commands.name for commands in self.viking.commands if not commands.hidden)
+
+        in_viking = [command for command in viking_commands if command not in database_commands]
+        in_database = [command for command in database_commands if command not in viking_commands]
+
+        # If a command exists in Viking, and not in the database; update the database
+        if in_viking:
+            for command in self.viking.commands:
+                if not command.hidden:
+                    if command.name in in_viking:
+                        await PublicCommands.create(name=command.name)
+
+                        if command.aliases:
+                            for alias in command.aliases:
+                                (
+                                    await PublicCommands
+                                    .update
+                                    .values(
+                                        aliases=database.func.array_prepend(
+                                            alias,
+                                            PublicCommands.aliases
+                                        )
+                                    )
+                                    .where(PublicCommands.name == command.name)
+                                    .gino
+                                    .status()
+                                )
+
+        # If a command exists in the database, and not in Viking; delete from database
+        if in_database:
+            for command in in_database:
+                (
+                    await PublicCommands
+                    .delete
+                    .where(PublicCommands.name == command)
+                    .gino
+                    .status()
+                )
+
+    @commands.command(hidden=True)
+    @commands.is_owner()
     async def drop(self, ctx):
         """
         *drop <table>
@@ -244,6 +318,19 @@ class Migration(commands.Cog):
 
         await ctx.message.delete()
         await database.gino.drop_all()
+
+    @commands.command(hidden=True)
+    @commands.is_owner()
+    async def update(self, ctx):
+        """
+        *update
+
+        A command that executes the necessary queries to update the
+        database.
+        """
+
+        await ctx.message.delete()
+        await self.update_public_commands()
 
     @commands.command(hidden=True)
     @commands.is_owner()
@@ -262,8 +349,7 @@ class Migration(commands.Cog):
         await self.insert_hidden_commands()
         await self.insert_roles()
         await self.insert_members()
-        await self.insert_nhl_teams()
-        await self.insert_nhl_players()
+        await self.insert_member_sounds()
         await self.insert_lol_champions()
         await self.insert_lol_spells()
 

@@ -308,9 +308,13 @@ class NHL(commands.Cog):
 
         data = []
 
-        player = await NHLPlayers.query.where(
-            NHLPlayers.player_id == player_id
-        ).gino.first()
+        player = (
+            await NHLPlayers
+            .query
+            .where(NHLPlayers.player_id == player_id)
+            .gino
+            .first()
+        )
 
         data.append(player)
 
@@ -391,9 +395,13 @@ class NHL(commands.Cog):
             title='Team'
         )
 
-        team = await NHLTeams.query.where(
-            NHLTeams.team_id == team_id
-        ).gino.first()
+        team = (
+            await NHLTeams
+            .query
+            .where(NHLTeams.team_id == team_id)
+            .gino
+            .first()
+        )
 
         embed.add_field(
             inline=False,

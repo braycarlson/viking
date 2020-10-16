@@ -1,7 +1,7 @@
 from discord.ext import commands
 
 
-def is_channel(channel_id: int):
+def is_channel(channel_id):
     async def predicate(ctx):
         if (ctx.channel.id != channel_id and
                 ctx.guild is not None and ctx.invoked_with != 'help'):

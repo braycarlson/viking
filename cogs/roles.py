@@ -17,7 +17,7 @@ class Roles(commands.Cog):
     # Event Listeners
 
     @commands.Cog.listener()
-    async def on_guild_role_create(self, role: discord.Role):
+    async def on_guild_role_create(self, role):
         """
         An event that is called when a role is created.
         """
@@ -25,7 +25,7 @@ class Roles(commands.Cog):
         await self.event.role_create(role)
 
     @commands.Cog.listener()
-    async def on_guild_role_delete(self, role: discord.Role):
+    async def on_guild_role_delete(self, role):
         """
         An event that is called when a role is deleted.
         """
@@ -34,7 +34,7 @@ class Roles(commands.Cog):
         await self.event.role_delete(role.id)
 
     @commands.Cog.listener()
-    async def on_guild_role_update(self, before: discord.Role, after: discord.Role):
+    async def on_guild_role_update(self, before, after):
         """
         An event that is called when a role is updated.
         """
@@ -51,7 +51,7 @@ class Roles(commands.Cog):
 
     @commands.command(hidden=True)
     @commands.has_any_role('Administrator')
-    async def addrole(self, ctx, name: str, *, identifier: str):
+    async def addrole(self, ctx, name, *, identifier):
         """
         *addrole <role> <identifier>
 
@@ -77,7 +77,7 @@ class Roles(commands.Cog):
 
     @commands.command(hidden=True)
     @commands.has_any_role('Administrator')
-    async def createrole(self, ctx, *, name: str):
+    async def createrole(self, ctx, *, name):
         """
         *createrole <name>
 
@@ -99,7 +99,7 @@ class Roles(commands.Cog):
 
     @commands.command(hidden=True)
     @commands.has_any_role('Administrator')
-    async def deleterole(self, ctx, *, name: str):
+    async def deleterole(self, ctx, *, name):
         """
         *deleterole <name>
 
@@ -123,7 +123,7 @@ class Roles(commands.Cog):
 
     @commands.command(hidden=True)
     @commands.has_any_role('Administrator')
-    async def removerole(self, ctx, name: str, *, identifier: str):
+    async def removerole(self, ctx, name, *, identifier):
         """
         *removerole <role> <identifier>
 
@@ -148,7 +148,7 @@ class Roles(commands.Cog):
                 log.info(f"{ctx.author} removed the role {role} from {member}.")
 
     @commands.command()
-    async def role(self, ctx, *, identifier: str):
+    async def role(self, ctx, *, identifier):
         """
         *role <identifier>
 

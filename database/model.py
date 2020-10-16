@@ -1,8 +1,20 @@
 from gino import Gino
-# from gino.declarative import declarative_base
 
 
 database = Gino()
+
+
+class MemberSounds(database.Model):
+    __tablename__ = 'member_sounds'
+
+    id = database.Column(database.BigInteger(), primary_key=True)
+    name = database.Column(database.TEXT(), nullable=False)
+    created_by = database.Column(database.BigInteger(), nullable=False)
+    created_at = database.Column(database.DateTime(), nullable=True)
+    updated_at = database.Column(database.DateTime(), nullable=True)
+
+    _fk_discord_id = database.ForeignKeyConstraint(["created_by"], ["active_members.discord_id"])
+    _idx_name = database.Index('index_name', database.func.lower('name'))
 
 
 class GuildRoles(database.Model):
@@ -235,78 +247,3 @@ class LoLSpells(database.Model):
     full_image = database.Column(database.TEXT(), nullable=True)
     resource = database.Column(database.TEXT(), nullable=True)
     level = database.Column(database.Integer(), nullable=True)
-
-
-# database = Gino()
-# Base = declarative_base(database)
-
-
-# class GuildRoles(database.Model):
-#     __tablename__ = 'guild_roles'
-
-#     id = database.Column(database.BigInteger(), primary_key=True)
-#     name = database.Column(database.TEXT(), nullable=False)
-#     colour = database.Column(database.VARCHAR(255), nullable=False)
-#     hoist = database.Column(database.Boolean(), nullable=False)
-#     position = database.Column(database.SmallInteger(), primary_key=True)
-#     managed = database.Column(database.Boolean(), nullable=False)
-#     mentionable = database.Column(database.Boolean(), nullable=False)
-#     is_default = database.Column(database.Boolean(), nullable=False)
-#     created_at = database.Column(database.DateTime(), nullable=True)
-
-#     _idx_role_id = database.Index('index_role_id', 'id', unique=True)
-#     _idx_role_name = database.Index('index_role_name', database.func.lower('name'))
-
-
-# class MemberModel(Base):
-#     __abstract__ = True
-
-#     discord_id = database.Column(database.BigInteger(), primary_key=True)
-#     name = database.Column(database.TEXT(), nullable=False)
-#     discriminator = database.Column(database.VARCHAR(255), nullable=False)
-#     display_name = database.Column(database.TEXT(), nullable=False)
-#     nickname = database.Column(database.TEXT(), nullable=True)
-#     role_id = database.Column(database.BigInteger(), nullable=False)
-#     bot = database.Column(database.Boolean(), nullable=False)
-#     previous_name = database.Column(database.ARRAY(database.TEXT()), nullable=True)
-#     previous_discriminator = database.Column(database.ARRAY(database.VARCHAR(255)), nullable=True)
-#     previous_nickname = database.Column(database.ARRAY(database.TEXT()), nullable=True)
-#     created_at = database.Column(database.DateTime(), nullable=True)
-#     joined_at = database.Column(database.DateTime(), nullable=True)
-#     updated_at = database.Column(database.DateTime(), nullable=True)
-#     removed_at = database.Column(database.DateTime(), nullable=True)
-#     deleted_at = database.Column(database.DateTime(), nullable=True)
-
-#     _fk_role_id = database.ForeignKeyConstraint(["role_id"], ["guild_roles.id"])
-#     _idx_member_name = database.Index('index_member_name', database.func.lower('name'))
-#     _idx_member_nickname = database.Index('index_member_nickname', database.func.lower('nickname'))
-
-
-# class CommandModel(Base):
-#     __abstract__ = True
-
-#     id = database.Column(database.Integer(), primary_key=True)
-#     name = database.Column(database.TEXT(), nullable=False)
-#     aliases = database.Column(database.ARRAY(database.TEXT()), nullable=True)
-
-#     _idx_command_name = database.Index('index_command_name', 'name', unique=True)
-
-
-# class ActiveMembers(MemberModel):
-#     __tablename__ = 'active_members'
-
-
-# class RemovedMembers(MemberModel):
-#     __tablename__ = 'removed_members'
-
-
-# class BannedMembers(MemberModel):
-#     __tablename__ = 'banned_members'
-
-
-# class PublicCommands(CommandModel):
-#     __tablename__ = 'public_commands'
-
-
-# class HiddenCommands(CommandModel):
-#     __tablename__ = 'hidden_commands'

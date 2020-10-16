@@ -1,8 +1,8 @@
 import asyncio
 import logging
-import os
 from bot import Viking
 from contextlib import contextmanager
+from pathlib import Path
 
 
 try:
@@ -23,10 +23,13 @@ def logger():
         log = logging.getLogger()
         log.setLevel(logging.INFO)
 
+        directory = Path(__file__).parent.joinpath('logs')
+        directory.mkdir(exist_ok=True)
+        path = directory / 'viking.log'
+        path.open('a', encoding='utf-8').close()
+
         file_handler = logging.FileHandler(
-            filename=os.path.join(
-                os.path.dirname(__file__),
-                'logs/viking.log'),
+            filename=path,
             encoding='utf-8'
         )
         stream_handler = logging.StreamHandler()

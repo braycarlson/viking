@@ -57,7 +57,7 @@ class Member:
         return self.deleted_at.strftime('%B %d, %Y')
 
 
-async def get_member_by_id(self, ctx, identifier: str, table='members'):
+async def get_member_by_id(self, ctx, identifier, table='members'):
     """
     A function to get a member by ID from the database.
     """
@@ -77,9 +77,13 @@ async def get_member_by_id(self, ctx, identifier: str, table='members'):
         if table == 'removed_members':
             table = RemovedMembers
 
-        row = await table.select('discord_id').where(
-            table.discord_id == discord_id
-        ).gino.scalar()
+        row = (
+            await table
+            .select('discord_id')
+            .where(table.discord_id == discord_id)
+            .gino
+            .scalar()
+        )
 
         if row is None:
             raise MemberError
@@ -87,7 +91,7 @@ async def get_member_by_id(self, ctx, identifier: str, table='members'):
         return row
 
 
-async def get_member_by_discriminator(self, ctx, member_name: str, member_discriminators, table: str):
+async def get_member_by_discriminator(self, ctx, member_name, member_discriminators, table):
     """
     A function to get a member by discriminator to discern between
     members with identical account names or nicknames.
@@ -111,12 +115,31 @@ async def get_member_by_discriminator(self, ctx, member_name: str, member_discri
     except asyncio.TimeoutError:
         raise
     else:
-        return await ActiveMembers.select('discord_id').where(
-            (database.func.lower(ActiveMembers.name) == member_name) &
-            (ActiveMembers.discriminator == message.content) |
-            (database.func.lower(ActiveMembers.nickname) == member_name) &
-            (ActiveMembers.discriminator == message.content)
-        ).gino.scalar()
+        return (
+            await ActiveMembers
+            .select('discord_id')
+            .where(
+                (database.func.levenshtein(
+                    database.func.lower(ActiveMembers.display_name),
+                    member_name
+                ) <= 3) &
+                (ActiveMembers.discriminator == message.content) |
+
+                (database.func.levenshtein(
+                    database.func.lower(ActiveMembers.name),
+                    member_name
+                ) <= 3) &
+                (ActiveMembers.discriminator == message.content) |
+
+                (database.func.levenshtein(
+                    database.func.lower(ActiveMembers.nickname),
+                    member_name
+                ) <= 3) &
+                (ActiveMembers.discriminator == message.content)
+            )
+            .gino
+            .scalar()
+        )
 
 
 async def show_identical_members(self, ctx, rows):
@@ -146,21 +169,40 @@ async def show_identical_members(self, ctx, rows):
     await ctx.send(embed=embed)
 
 
-async def get_member_by_name(self, ctx, member_name: str, table: str):
+async def get_member_by_name(self, ctx, member_name, table):
     """
     A function to get a member by account name or nickname from the
     database.
     """
 
-    rows = await ActiveMembers.select(
-        'discord_id',
-        'name',
-        'discriminator',
-        'nickname'
-    ).where(
-        (database.func.lower(ActiveMembers.name) == member_name) |
-        (database.func.lower(ActiveMembers.nickname) == member_name)
-    ).gino.all()
+    rows = (
+        await ActiveMembers
+        .select(
+            'discord_id',
+            'name',
+            'discriminator',
+            'nickname'
+        )
+        .where(
+            (database.func.levenshtein(
+                database.func.lower(ActiveMembers.display_name),
+                member_name
+            ) <= 3) |
+
+            (database.func.levenshtein(
+                database.func.lower(ActiveMembers.name),
+                member_name
+            ) <= 3) |
+
+            (database.func.levenshtein(
+                database.func.lower(ActiveMembers.nickname),
+                member_name
+            ) <= 3)
+        )
+        .limit(5)
+        .gino
+        .all()
+    )
 
     if len(rows) == 0:
         raise MemberError

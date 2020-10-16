@@ -1,7 +1,6 @@
 import aiohttp
 import discord
 import logging
-import os
 import sys
 import time
 import traceback
@@ -9,16 +8,23 @@ from configparser import RawConfigParser
 from database.model import database, PublicCommands
 from datetime import datetime
 from discord.ext import commands
+from pathlib import Path, PurePath
 from tabulate import tabulate
 from utilities.format import format_list
 
 
+ROOT = PurePath(__file__).parent
+
+
 configuration = RawConfigParser()
-configuration.read(os.path.join(
-    os.path.dirname(__file__),
-    'config.ini')
+configuration.read(
+    ROOT.joinpath('config.ini')
 )
 log = logging.getLogger(__name__)
+
+intents = discord.Intents.default()
+intents.members = True
+intents.presences = True
 
 
 class Viking(commands.Bot):
@@ -26,6 +32,7 @@ class Viking(commands.Bot):
         super().__init__(
             command_prefix=commands.when_mentioned_or('*'),
             case_insensitive=True,
+            intents=intents,
             pm_help=None,
             help_attrs=dict(hidden=True)
         )
@@ -37,7 +44,7 @@ class Viking(commands.Bot):
         self.guild_id = configuration['bot'].getint('guild_id')
         self.initialize_extensions = []
         self.owner_id = configuration['bot'].getint('owner_id')
-        self.root = os.path.dirname(__file__)
+        self.root = Path(__file__).parent
         self.session = aiohttp.ClientSession(loop=self.loop)
         self.start_time = time.time()
         self.token = configuration['bot']['token']
@@ -53,14 +60,15 @@ class Viking(commands.Bot):
         # API
         self.lol_api_key = configuration['lol']['key']
         self.owm_api_key = configuration['owm']['key']
+        self.rpd_api_key = configuration['rpd']['key']
         self.trn_api_key = configuration['trn']['key']
+        self.wow_api_id = configuration['wow']['id']
+        self.wow_api_key = configuration['wow']['key']
 
     def get_extensions(self):
-        with os.scandir(os.path.join(self.root, 'cogs')) as directory:
-            for file in directory:
-                if not file.name.startswith('.') and file.is_file():
-                    name, extension = os.path.splitext(file.name)
-                    self.initialize_extensions.append(f'cogs.{name}')
+        for path in self.root.joinpath('cogs').iterdir():
+            if not path.name.startswith('.') and path.is_file():
+                self.initialize_extensions.append(f'cogs.{path.stem}')
 
     def load_extensions(self):
         for extension in self.initialize_extensions:
@@ -83,9 +91,19 @@ class Viking(commands.Bot):
             )
 
         elif isinstance(error, commands.CommandNotFound):
-            rows = await PublicCommands.select('name').where(
-                database.func.levenshtein(PublicCommands.name, ctx.invoked_with) <= 2
-            ).limit(5).gino.all()
+            rows = (
+                await PublicCommands
+                .select('name')
+                .where(
+                    database.func.levenshtein(
+                        PublicCommands.name,
+                        ctx.invoked_with
+                    ) <= 2
+                )
+                .limit(5)
+                .gino
+                .all()
+            )
 
             if len(rows) > 0:
                 suggestions = [dict(row).get('name') for row in rows]

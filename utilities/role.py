@@ -27,21 +27,25 @@ class Role:
         return self.created_at.strftime('%B %d, %Y')
 
 
-async def check_for_role(self, name: str):
+async def check_for_role(self, name):
     """
     A function to check for the existence of a role.
     """
 
     name = name.lower()
 
-    role = await GuildRoles.query.where(
-        database.func.lower(GuildRoles.name) == name
-    ).gino.scalar()
+    role = (
+        await GuildRoles
+        .query
+        .where(database.func.lower(GuildRoles.name) == name)
+        .gino
+        .scalar()
+    )
 
     return role
 
 
-async def get_role_by_id(self, identifier: str):
+async def get_role_by_id(self, identifier):
     """
     A function to get a role by ID from the database.
     """
@@ -52,9 +56,13 @@ async def get_role_by_id(self, identifier: str):
         role = identifier.lower()
         return await get_role_by_name(self, role)
     else:
-        row = await GuildRoles.select('id').where(
-            GuildRoles.id == role_id
-        ).gino.scalar()
+        row = (
+            await GuildRoles
+            .select('id')
+            .where(GuildRoles.id == role_id)
+            .gino
+            .scalar()
+        )
 
         if row is None:
             raise RoleError
@@ -62,14 +70,18 @@ async def get_role_by_id(self, identifier: str):
         return row
 
 
-async def get_role_by_name(self, role_name: str):
+async def get_role_by_name(self, role_name):
     """
     A function to get a role by name from the database.
     """
 
-    row = await GuildRoles.query.where(
-        database.func.lower(GuildRoles.name) == role_name
-    ).gino.scalar()
+    row = (
+        await GuildRoles
+        .query
+        .where(database.func.lower(GuildRoles.name) == role_name)
+        .gino
+        .scalar()
+    )
 
     if row is None:
         raise RoleError

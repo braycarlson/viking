@@ -2,7 +2,7 @@ import discord
 from asyncio import TimeoutError
 from database.model import NHLTeams, NHLPlayers
 from datetime import datetime
-from fuzzywuzzy import process
+from rapidfuzz import process
 from utilities.format import format_list
 from utilities.request import fetch
 
@@ -335,7 +335,10 @@ async def get_team_schedule(session, date, team_id):
 
 async def search_for_players(name: str):
     players = dict(
-        await NHLPlayers.select('player_id', 'full_name').gino.all()
+        await NHLPlayers
+        .select('player_id', 'full_name')
+        .gino
+        .all()
     )
 
     match = process.extract(
@@ -348,7 +351,10 @@ async def search_for_players(name: str):
 
 async def search_for_teams(name: str):
     teams = dict(
-        await NHLTeams.select('team_id', 'team_name').gino.all()
+        await NHLTeams
+        .select('team_name', 'team_id')
+        .gino
+        .all()
     )
 
     match = process.extract(

@@ -13,7 +13,7 @@ SYMBOLS = {
 }
 
 
-def alphabet(string: str):
+def alphabet(string):
     """
     A function to filter a string to only allow alphabetical characters.
     """
@@ -22,7 +22,16 @@ def alphabet(string: str):
     return pattern.sub('', string)
 
 
-def alphabet_and_spaces(string: str):
+def alphanumerical(string):
+    """
+    A function to filter a string to only allow alphanumerical characters.
+    """
+
+    pattern = re.compile('[^a-zA-Z0-9]+')
+    return pattern.sub('', string)
+
+
+def alphabet_and_spaces(string):
     """
     A function to filter a string to only allow alphabetical characters
     and spaces.
@@ -32,7 +41,7 @@ def alphabet_and_spaces(string: str):
     return pattern.sub('', string)
 
 
-def get_symbol(symbol: str):
+def get_symbol(symbol):
     """
     A function to check for the existence of a specified symbol.
     """
@@ -52,6 +61,7 @@ def format_list(items, **kwargs):
     result = []
     sort = kwargs.get('sort')
     enumerate = kwargs.get('enumerate')
+    paragraph = kwargs.get('paragraph')
     symbol = kwargs.get('symbol')
     symbol = get_symbol(symbol)
 
@@ -70,10 +80,13 @@ def format_list(items, **kwargs):
 
         return '\n'.join(result)
 
-    return ', '.join(items)
+    if paragraph:
+        return ', '.join(items)
+    else:
+        return '\n'.join(items)
 
 
-def format_time(time: int, unit: str, delimiter=False):
+def format_time(time, unit, delimiter=False):
     """
     A function to format a unit of time, so it is readable when it is
     output to Discord.
@@ -93,7 +106,7 @@ def format_time(time: int, unit: str, delimiter=False):
     return ''
 
 
-def format_utc(date: int):
+def format_utc(date):
     """
     A function to convert UTC to a local timezone, then output it in a
     readable format.
@@ -110,7 +123,7 @@ def format_utc(date: int):
     return string
 
 
-def random_case(string: str):
+def random_case(string):
     """
     A function to convert a string to "random case".
     """

@@ -1,6 +1,6 @@
 import logging
-import os
 import paramiko
+from bot import ROOT
 from configparser import RawConfigParser
 from database.model import database
 from discord.ext import commands
@@ -8,25 +8,17 @@ from discord.ext import commands
 
 log = logging.getLogger(__name__)
 configuration = RawConfigParser()
-configuration.read(os.path.join(
-    os.path.dirname(
-        os.path.dirname(__file__)
-    ),
-    'config.ini')
+configuration.read(
+    ROOT.joinpath('config.ini')
 )
 
 
 class Administration(commands.Cog):
     def __init__(self, viking):
         self.viking = viking
-        self.crontab_path = os.path.join(
-            self.viking.root,
-            'logs/crontab.txt'
-        )
-        self.log_path = os.path.join(
-            self.viking.root,
-            'logs/viking.log'
-        )
+        self.root = viking.root
+        self.crontab_path = self.root.joinpath('logs/crontab.txt')
+        self.log_path = self.root.joinpath('logs/viking.log')
         self.session = viking.session
 
     @commands.command(hidden=True)
@@ -59,10 +51,7 @@ class Administration(commands.Cog):
 
         client = paramiko.SSHClient()
         client.load_host_keys(
-            os.path.join(
-                self.viking.root,
-                'known_hosts'
-            )
+            self.root.joinpath('known_hosts')
         )
         client.connect(
             hostname=configuration['paramiko']['hostname'],
@@ -87,8 +76,8 @@ class Administration(commands.Cog):
         """
 
         await ctx.message.delete()
-        open(self.crontab_path, 'w').close()
-        open(self.log_path, 'w').close()
+        self.crontab_path.open('w', encoding='utf-8').close()
+        self.log_path.open('w', encoding='utf-8').close()
 
 
 def setup(viking):
