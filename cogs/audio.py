@@ -366,9 +366,9 @@ class Audio(commands.Cog):
         ctx.voice_client.pause()
 
     @commands.command()
-    async def rename(self, ctx, original: str, name: str):
+    async def rename(self, ctx, before: str, after: str):
         """
-        *rename <original> <rename>
+        *rename <before> <after>
 
         A command to rename a sound.
         """
@@ -377,19 +377,19 @@ class Audio(commands.Cog):
             await MemberSounds
             .select('id', 'created_by')
             .where(MemberSounds.created_by == ctx.author.id)
-            .where(MemberSounds.name == original)
+            .where(MemberSounds.name == before)
             .gino
             .first()
         )
 
         if row is None:
-            message = f"You do not have permission to modify **{original}**."
+            message = f"You do not have permission to modify **{before}**."
             return await ctx.send(message)
 
-        file = await self.get_file(original)
-        original = self.member.joinpath(file.stem + file.suffix)
-        rename = self.member.joinpath(alphanumerical(name) + file.suffix)
-        os.rename(original, rename)
+        file = await self.get_file(before)
+        before = self.member.joinpath(file.stem + file.suffix)
+        after = self.member.joinpath(alphanumerical(after) + file.suffix)
+        os.rename(before, after)
 
         id, created_by = row
         updated_at = datetime.now()
@@ -398,7 +398,7 @@ class Audio(commands.Cog):
             insert(MemberSounds)
             .values(
                 id=id,
-                name=name,
+                name=after,
                 created_by=created_by,
                 updated_at=updated_at
             )
@@ -419,7 +419,7 @@ class Audio(commands.Cog):
             .scalar()
         )
 
-        message = f"{original} was successfully renamed to **{name}**."
+        message = f"{before} was successfully renamed to **{after}**."
         await ctx.send(message)
 
     @commands.command()

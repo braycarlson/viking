@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 
 
-def run_at(hour: int = 0, minute: int = 0, second: int = 0):
+def run_at(hour=0, minute=0, second=0):
     """
     A function that returns the seconds until a specified time.
     """
@@ -19,7 +19,7 @@ def run_at(hour: int = 0, minute: int = 0, second: int = 0):
     return run.total_seconds()
 
 
-def timeout(hours: int = 0, minutes: int = 0, seconds: int = 0):
+def timeout(hours=0, minutes=0, seconds=0):
     """
     A function that returns a timeout in seconds.
     """

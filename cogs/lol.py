@@ -11,7 +11,6 @@ from utilities.lol import (
     get_summoner_account,
     get_summoner_leagues,
     get_champion_name,
-    get_champion_names,
     get_champion_statistics,
     get_champion_version,
     get_spell_statistics,
