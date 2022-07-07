@@ -1,18 +1,18 @@
 ## Viking
 
-Viking is a bot that uses [discord.py](https://github.com/Rapptz/discord.py).
+Viking is a Discord bot that is using [discord.py](https://github.com/Rapptz/discord.py).
 
 ## Getting Started
 
 You will need:
-* [Python 3.7+](https://www.python.org/downloads/)
+* [Python 3.10+](https://www.python.org/downloads/)
 * [PostgreSQL 11](https://www.postgresql.org/download/)
 
 ## Requirements
 
 You can install all of the requirements by running:
 ```
-$ pip install -r requirements.txt
+$ pip install -U -r requirements.txt
 ```
 
 ## Commands
@@ -232,20 +232,6 @@ solo, duo, squad and lifetime data.
 
 ***unrestrict \<member>**
 * Viking unrestricts a member by name, nickname or ID.
-
-### **NHL**
-
-***nhl game \<team>**
-* Viking displays information about an active, completed or upcoming game from today.
-
-***nhl player \<player>**
-* Viking displays trivial information about a player, and their statistics from the current season.
-
-***nhl schedule**
-* Viking displays information about every game occuring today.
-
-***nhl team \<team>**
-* Viking displays trivial information about a team.
 
 ### **Roles**
 

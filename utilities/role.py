@@ -1,30 +1,5 @@
-from database.model import database, GuildRoles
-
-
-class RoleError(Exception):
-    """
-    A RoleError is raised when a role is not found in the database
-    from user input. This can include by an ID or name.
-    """
-
-    pass
-
-
-class Role:
-    def __init__(self, data):
-        self.id = data.get('id')
-        self.name = data.get('name')
-        self.colour = data.get('colour')
-        self.hoist = data.get('hoist')
-        self.position = data.get('position')
-        self.managed = data.get('managed')
-        self.mentionable = data.get('mentionable')
-        self.is_default = data.get('is_default')
-        self.created_at = data.get('created_at')
-
-    @property
-    def created(self):
-        return self.created_at.strftime('%B %d, %Y')
+from model.role import DiscordRole, DiscordRoleError
+from sqlalchemy import func
 
 
 async def check_for_role(self, name):
@@ -35,9 +10,9 @@ async def check_for_role(self, name):
     name = name.lower()
 
     role = (
-        await GuildRoles
+        await self.viking.guild.role
         .query
-        .where(database.func.lower(GuildRoles.name) == name)
+        .where(func.lower(self.viking.guild.role.name) == name)
         .gino
         .scalar()
     )
@@ -57,15 +32,15 @@ async def get_role_by_id(self, identifier):
         return await get_role_by_name(self, role)
     else:
         row = (
-            await GuildRoles
+            await self.viking.guild.role
             .select('id')
-            .where(GuildRoles.id == role_id)
+            .where(self.viking.guild.role.id == role_id)
             .gino
             .scalar()
         )
 
         if row is None:
-            raise RoleError
+            raise DiscordRoleError
 
         return row
 
@@ -76,14 +51,14 @@ async def get_role_by_name(self, role_name):
     """
 
     row = (
-        await GuildRoles
+        await self.viking.guild.role
         .query
-        .where(database.func.lower(GuildRoles.name) == role_name)
+        .where(func.lower(self.viking.guild.role.name) == role_name)
         .gino
         .scalar()
     )
 
     if row is None:
-        raise RoleError
+        raise DiscordRoleError
 
     return row

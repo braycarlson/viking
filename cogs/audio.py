@@ -2,67 +2,18 @@ import asyncio
 import discord
 import os
 import sys
+
 from async_timeout import timeout
-from database.model import ActiveMembers, MemberSounds
 from datetime import datetime
 from discord.ext import commands
-from pathlib import Path, PurePath
+from pages.audio import MySoundsPages, SoundPages
+from pathlib import Path
 from random import choice
 from rapidfuzz import process
 from sqlalchemy.dialects.postgresql import insert
-from utilities.format import alphanumerical, format_list
-from utilities.member import MemberError, get_member_by_id
-from utilities.pagination import Pages
+from utilities.format import alphanumerical
+from utilities.member import MemberInterface
 from utilities.request import download
-
-
-class MySoundsPages(Pages):
-    def __init__(self, ctx, member, entries):
-        super().__init__(ctx, entries=entries, per_page=1)
-        self.member = member
-
-    def get_page(self, page):
-        return self.entries[page - 1]
-
-    def prepare_embed(self, entries, page, *, first=False):
-        self.embed = embed = discord.Embed(
-            colour=discord.Colour.purple(),
-            title=f"{self.member}'s Sounds"
-        )
-
-        embed.add_field(
-            inline=False,
-            name='Sound',
-            value=format_list(entries, paragraph=True)
-        )
-
-        if self.maximum_pages > 1:
-            text = f'Page {page}/{self.maximum_pages}'
-            embed.set_footer(text=text)
-
-
-class SoundPages(Pages):
-    def __init__(self, ctx, entries):
-        super().__init__(ctx, entries=entries, per_page=1)
-
-    def get_page(self, page):
-        return self.entries[page - 1]
-
-    def prepare_embed(self, entries, page, *, first=False):
-        self.embed = embed = discord.Embed(
-            colour=discord.Colour.purple(),
-            title='Soundbank'
-        )
-
-        embed.add_field(
-            inline=False,
-            name='Sound',
-            value=format_list(entries, paragraph=True)
-        )
-
-        if self.maximum_pages > 1:
-            text = f'Page {page}/{self.maximum_pages}'
-            embed.set_footer(text=text)
 
 
 class Player:
@@ -74,7 +25,7 @@ class Player:
         self.queue = asyncio.Queue()
         self.event = asyncio.Event()
 
-        self.viking.loop.create_task(
+        asyncio.create_task(
             self.player_loop()
         )
 
@@ -113,14 +64,13 @@ class Audio(commands.Cog):
         self.root = viking.root
         self.default = self.root.joinpath('sound/default')
         self.member = self.root.joinpath('sound/member')
-        self.session = viking.session
 
     @property
     def executable(self):
         if sys.platform == 'linux':
-            return PurePath('/usr/bin/ffmpeg')
+            return Path('/usr/bin/ffmpeg')
         else:
-            return PurePath('C:/Program Files/ffmpeg/bin/ffmpeg.exe')
+            return Path('C:/Program Files/ffmpeg/bin/ffmpeg.exe')
 
     def get_player(self, ctx):
         try:
@@ -179,7 +129,6 @@ class Audio(commands.Cog):
             pass
 
     @commands.command()
-    @commands.has_any_role('Administrator', 'Moderator', 'OG')
     async def add(self, ctx, *, name=None):
         """
         *add <filename>
@@ -218,11 +167,11 @@ class Audio(commands.Cog):
                 if member.exists() or default.exists():
                     return await ctx.send(f"'{name}' already exists. Please use another filename.")
                 else:
-                    await download(self.session, attachment.url, member)
+                    await download(self.viking.session, attachment.url, member)
 
                     date = datetime.now()
 
-                    await MemberSounds.create(
+                    await self.viking.guild.sound.create(
                         name=name,
                         created_by=ctx.author.id,
                         created_at=date
@@ -233,7 +182,7 @@ class Audio(commands.Cog):
                 return await ctx.send(f"{extension} is not a supported filetype.")
 
     @commands.command()
-    async def connect(self, ctx, *, channel: discord.VoiceChannel = None):
+    async def connect(self, ctx, *, channel=None):
         if not channel:
             try:
                 channel = ctx.author.voice.channel
@@ -258,7 +207,7 @@ class Audio(commands.Cog):
             pass
 
     @commands.command()
-    async def delete(self, ctx, query: str):
+    async def delete(self, ctx, query):
         """
         *delete <sound>
 
@@ -266,10 +215,10 @@ class Audio(commands.Cog):
         """
 
         row = (
-            await MemberSounds
+            await self.viking.guild.sound
             .select('id', 'created_by')
-            .where(MemberSounds.created_by == ctx.author.id)
-            .where(MemberSounds.name == query)
+            .where(self.viking.guild.sound.created_by == ctx.author.id)
+            .where(self.viking.guild.sound.name == query)
             .gino
             .first()
         )
@@ -282,9 +231,9 @@ class Audio(commands.Cog):
         self.member.joinpath(file.stem + file.suffix).unlink()
 
         (
-            await MemberSounds
+            await self.viking.guild.sound
             .delete
-            .where(MemberSounds.name == query)
+            .where(self.viking.guild.sound.name == query)
             .gino
             .status()
         )
@@ -301,9 +250,9 @@ class Audio(commands.Cog):
         """
 
         rows = (
-            await MemberSounds
+            await self.viking.guild.sound
             .select('name')
-            .where(MemberSounds.created_by == ctx.author.id)
+            .where(self.viking.guild.sound.created_by == ctx.author.id)
             .gino
             .all()
         )
@@ -318,7 +267,7 @@ class Audio(commands.Cog):
             pass
 
     @commands.command()
-    async def play(self, ctx, *, query: str):
+    async def play(self, ctx, *, query):
         """
         *play <sound>
 
@@ -366,7 +315,7 @@ class Audio(commands.Cog):
         ctx.voice_client.pause()
 
     @commands.command()
-    async def rename(self, ctx, before: str, after: str):
+    async def rename(self, ctx, before, after):
         """
         *rename <before> <after>
 
@@ -374,10 +323,10 @@ class Audio(commands.Cog):
         """
 
         row = (
-            await MemberSounds
+            await self.viking.guild.sound
             .select('id', 'created_by')
-            .where(MemberSounds.created_by == ctx.author.id)
-            .where(MemberSounds.name == before)
+            .where(self.viking.guild.sound.created_by == ctx.author.id)
+            .where(self.viking.guild.sound.name == before)
             .gino
             .first()
         )
@@ -395,7 +344,7 @@ class Audio(commands.Cog):
         updated_at = datetime.now()
 
         statement = (
-            insert(MemberSounds)
+            insert(self.viking.guild.sound)
             .values(
                 id=id,
                 name=after,
@@ -407,7 +356,7 @@ class Audio(commands.Cog):
         statement = (
             await statement
             .on_conflict_do_update(
-                index_elements=[MemberSounds.id],
+                index_elements=[self.viking.guild.sound.id],
                 set_=dict(
                     id=statement.excluded.id,
                     name=statement.excluded.name,
@@ -481,17 +430,16 @@ class Audio(commands.Cog):
         specified member.
         """
 
-        try:
-            member_id = await get_member_by_id(self, ctx, identifier)
-        except MemberError:
-            await ctx.send('No member found.')
-        except TimeoutError:
-            await ctx.send('You have run out of time. Please try again.')
+        interface = MemberInterface(ctx, identifier)
+        discord_id = await interface.get()
+
+        if discord_id is None:
+            return
 
         row = dict(
-            await ActiveMembers
+            await self.viking.guild.member
             .select('discord_id', 'display_name')
-            .where(ActiveMembers.discord_id == member_id)
+            .where(self.viking.guild.member.discord_id == discord_id)
             .gino
             .first()
         )
@@ -500,9 +448,9 @@ class Audio(commands.Cog):
         display_name = row.get('display_name')
 
         rows = (
-            await MemberSounds
+            await self.viking.guild.sound
             .select('name')
-            .where(MemberSounds.created_by == discord_id)
+            .where(self.viking.guild.sound.created_by == discord_id)
             .gino
             .all()
         )
@@ -540,5 +488,6 @@ class Audio(commands.Cog):
             await ctx.message.delete()
 
 
-def setup(viking):
-    viking.add_cog(Audio(viking))
+async def setup(viking):
+    audio = Audio(viking)
+    await viking.add_cog(audio)

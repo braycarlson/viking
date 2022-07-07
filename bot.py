@@ -4,16 +4,25 @@ import logging
 import sys
 import time
 import traceback
+
 from configparser import RawConfigParser
-from database.model import database, PublicCommands
+from contextvars import ContextVar
+from database.command import Public
+from database.engine import (
+    command,
+    Guild,
+    lol,
+    nac,
+    viking
+)
 from datetime import datetime
 from discord.ext import commands
-from pathlib import Path, PurePath
+from pathlib import Path
 from tabulate import tabulate
 from utilities.format import format_list
 
 
-ROOT = PurePath(__file__).parent
+ROOT = Path(__file__).parent
 
 
 configuration = RawConfigParser()
@@ -22,16 +31,31 @@ configuration.read(
 )
 log = logging.getLogger(__name__)
 
-intents = discord.Intents.default()
-intents.members = True
-intents.presences = True
-
 
 class Viking(commands.Bot):
     def __init__(self):
+        allowed_mentions = discord.AllowedMentions(
+            everyone=False,
+            roles=False,
+            users=True
+        )
+
+        intents = discord.Intents(
+            bans=True,
+            emojis=True,
+            guilds=True,
+            members=True,
+            message_content=True,
+            messages=True,
+            reactions=True,
+            voice_states=True,
+        )
+
         super().__init__(
+            allowed_mentions=allowed_mentions,
             command_prefix=commands.when_mentioned_or('*'),
             case_insensitive=True,
+            enable_debug_events=True,
             intents=intents,
             pm_help=None,
             help_attrs=dict(hidden=True)
@@ -45,7 +69,6 @@ class Viking(commands.Bot):
         self.initialize_extensions = []
         self.owner_id = configuration['bot'].getint('owner_id')
         self.root = Path(__file__).parent
-        self.session = aiohttp.ClientSession(loop=self.loop)
         self.start_time = time.time()
         self.token = configuration['bot']['token']
 
@@ -55,9 +78,14 @@ class Viking(commands.Bot):
         self.normal = configuration['role'].getint('normal')
 
         # Database
-        self.postgresql_uri = configuration['database']['postgresql']
+        self.identifier = ContextVar(
+            '863292513141522433',
+            default='863292513141522433'
+        )
+        self.uri = configuration['database']['postgresql']
 
         # API
+        self.lol_api_url = configuration['lol']['api']
         self.lol_api_key = configuration['lol']['key']
         self.owm_api_key = configuration['owm']['key']
         self.rpd_api_key = configuration['rpd']['key']
@@ -65,17 +93,44 @@ class Viking(commands.Bot):
         self.wow_api_id = configuration['wow']['id']
         self.wow_api_key = configuration['wow']['key']
 
+    @property
+    def guild(self):
+        identifier = self.identifier.get()
+        guild = Guild()
+        return guild.get(identifier)
+
+    async def update(self, identifier):
+        identifier = str(identifier)
+        self.identifier.set(identifier)
+
+    async def setup_hook(self):
+        await command.set_bind(self.uri + 'command')
+        await lol.set_bind(self.uri + 'lol')
+        await nac.set_bind(self.uri + 'nac')
+        await viking.set_bind(self.uri + 'viking')
+
+        self.session = aiohttp.ClientSession(loop=self.loop)
+
     def get_extensions(self):
         for path in self.root.joinpath('cogs').iterdir():
             if not path.name.startswith('.') and path.is_file():
                 self.initialize_extensions.append(f'cogs.{path.stem}')
 
-    def load_extensions(self):
+    async def load_extensions(self):
         for extension in self.initialize_extensions:
             try:
-                self.load_extension(extension)
+                await self.load_extension(extension)
             except ModuleNotFoundError as exception:
                 log.warning(exception)
+
+    async def process_commands(self, message):
+        ctx = await self.get_context(message)
+
+        if ctx.command is None:
+            return
+
+        await self.update(message.guild.id)
+        await self.invoke(ctx)
 
     async def on_command_error(self, ctx, error):
         """
@@ -92,11 +147,11 @@ class Viking(commands.Bot):
 
         elif isinstance(error, commands.CommandNotFound):
             rows = (
-                await PublicCommands
+                await Public
                 .select('name')
                 .where(
-                    database.func.levenshtein(
-                        PublicCommands.name,
+                    command.func.levenshtein(
+                        Public.name,
                         ctx.invoked_with
                     ) <= 2
                 )
@@ -131,9 +186,12 @@ class Viking(commands.Bot):
 
         else:
             traceback.print_tb(error.original.__traceback__)
-            log.warning(f"{error.original.__class__.__name__} "
-                        f"from {ctx.command.qualified_name}: "
-                        f"{error.original}")
+
+            log.warning(
+                f"{error.original.__class__.__name__} "
+                f"from {ctx.command.qualified_name}: "
+                f"{error.original}"
+            )
 
     async def on_connect(self):
         """
@@ -141,16 +199,21 @@ class Viking(commands.Bot):
         connected to Discord.
         """
 
-        await database.set_bind(self.postgresql_uri)
         log.info(f"{self.bot_name} is connected.")
 
-    async def on_message(self, message: discord.Message):
+    async def on_message(self, message):
         """
         An event that is called every time a message is recieved,
         including Viking.
         """
 
-        if message.author.bot or message.content.startswith('*') and message.content.endswith('*'):
+        condition = (
+            message.author.bot or
+            message.content.startswith('*') and message.content.endswith('*') or
+            message.content.startswith('**') and message.content.endswith('**')
+        )
+
+        if condition:
             return
 
         await self.process_commands(message)
@@ -174,7 +237,7 @@ class Viking(commands.Bot):
         print(tabulate(table, tablefmt='psql'))
         log.info(f"{self.bot_name} is ready.")
 
-    def run(self):
+    async def start(self):
         self.get_extensions()
-        self.load_extensions()
-        super().run(self.token, reconnect=True)
+        await self.load_extensions()
+        await super().start(self.token, reconnect=True)

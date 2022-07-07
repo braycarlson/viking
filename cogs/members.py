@@ -1,12 +1,12 @@
 import discord
 import logging
-from asyncio import TimeoutError
-from database.model import GuildRoles, ActiveMembers
+
 from discord.ext import commands
 from utilities.event import MemberEvent
 from utilities.format import format_list
-from utilities.member import Member, MemberError, get_member_by_id
-from utilities.role import Role
+from utilities.member import DiscordMember, MemberInterface
+from utilities.role import DiscordRole
+
 
 log = logging.getLogger(__name__)
 
@@ -15,7 +15,6 @@ class Members(commands.Cog):
     def __init__(self, viking):
         self.viking = viking
         self.event = MemberEvent(self.viking)
-        self.session = viking.session
 
     # Event Listeners
 
@@ -25,24 +24,16 @@ class Members(commands.Cog):
         An event that is called when a member joins the guild.
         """
 
-        for guild in self.viking.guilds:
-            role = discord.utils.get(guild.roles, id=self.viking.normal)
-
-            try:
-                await member.add_roles(role)
-            except discord.HTTPException:
-                log.info(f"{member.name} could not be assigned the Normal role.")
-            else:
-                log.info(f"{member.name} was assigned the Normal role.")
+        await self.viking.update(member.guild.id)
 
         removed = await self.event.is_member_removed(member.id)
+        banned = await self.event.is_member_banned(member.id)
 
-        if removed is None:
+        if removed is None and banned is None:
             await self.event.member_create(member)
         else:
             await self.event.member_restore(member.id)
             await self.event.member_update(member)
-            await self.event.member_delete(member.id, table='removed_members')
 
     @commands.Cog.listener()
     async def on_member_update(self, before, after):
@@ -50,6 +41,8 @@ class Members(commands.Cog):
         An event that is called when a member changes their status, game,
         nickname or role.
         """
+
+        await self.viking.update(before.guild.id)
 
         if before.nick != after.nick:
             if before.nick is None:
@@ -66,8 +59,8 @@ class Members(commands.Cog):
         An event that is called when a member is banned from the guild.
         """
 
+        await self.viking.update(guild.id)
         await self.event.member_ban(member.id)
-        await self.event.member_delete(member.id)
 
     @commands.Cog.listener()
     async def on_member_unban(self, guild, member):
@@ -75,8 +68,8 @@ class Members(commands.Cog):
         An event that is called when a member is unbanned from the guild.
         """
 
+        await self.viking.update(guild.id)
         await self.event.member_unban(member.id)
-        await self.event.member_delete(member.id, table='banned_members')
 
     @commands.Cog.listener()
     async def on_member_remove(self, member):
@@ -85,11 +78,8 @@ class Members(commands.Cog):
         guild.
         """
 
-        banned = await self.event.is_member_banned(member.id)
-
-        if banned is None:
-            await self.event.member_remove(member.id)
-            await self.event.member_delete(member.id)
+        await self.viking.update(member.guild.id)
+        await self.event.member_remove(member.id)
 
     @commands.Cog.listener()
     async def on_user_update(self, before, after):
@@ -97,6 +87,8 @@ class Members(commands.Cog):
         An event that is called when a member changes their avatar,
         username or discriminator.
         """
+
+        await self.viking.update(before.guild.id)
 
         if before.name != after.name:
             if before.name is None:
@@ -120,118 +112,117 @@ class Members(commands.Cog):
         A command that displays an overview of a member.
         """
 
-        try:
-            member_id = await get_member_by_id(self, ctx, identifier)
-        except MemberError:
-            await ctx.send('No member found.')
-        except TimeoutError:
-            await ctx.send('You have run out of time. Please try again.')
-        else:
-            embed = discord.Embed(color=self.viking.color)
+        interface = MemberInterface(ctx, identifier)
+        discord_id = await interface.get()
 
-            row = dict(
-                await ActiveMembers
-                .query
-                .execution_options(return_model=False)
-                .where(ActiveMembers.discord_id == member_id)
-                .gino.first()
-            )
+        if discord_id is None:
+            return
 
-            member = Member(row)
+        embed = discord.Embed(color=self.viking.color)
 
-            row = dict(
-                await GuildRoles
-                .select('name')
-                .where(GuildRoles.id == member.role_id)
-                .gino
-                .first()
-            )
+        row = dict(
+            await self.viking.guild.member
+            .query
+            .execution_options(return_model=False)
+            .where(self.viking.guild.member.discord_id == discord_id)
+            .gino.first()
+        )
 
-            role = Role(row)
+        member = DiscordMember(row)
 
+        row = dict(
+            await self.viking.guild.role
+            .select('name')
+            .where(self.viking.guild.role.id == member.role_id)
+            .gino
+            .first()
+        )
+
+        role = DiscordRole(row)
+
+        embed.add_field(
+            inline=False,
+            name='Discord ID',
+            value=member.id
+        )
+        embed.add_field(
+            inline=False,
+            name='Name',
+            value=member.name
+        )
+        embed.add_field(
+            inline=False,
+            name='Discriminator',
+            value=member.discriminator
+        )
+
+        if member.nickname is not None:
             embed.add_field(
                 inline=False,
-                name='Discord ID',
-                value=member.id
+                name='Nickname',
+                value=member.nickname
+            )
+
+        embed.add_field(
+            inline=False,
+            name='Role',
+            value=role.name
+        )
+        embed.add_field(
+            inline=False,
+            name='Created At',
+            value=member.created
+        )
+        embed.add_field(
+            inline=False,
+            name='Joined At',
+            value=member.joined
+        )
+
+        if member.updated_at is not None:
+            embed.add_field(
+                inline=False,
+                name='Updated At',
+                value=member.updated
+            )
+
+        if member.previous_name is not None:
+            previous_name = format_list(
+                member.previous_name,
+                symbol='bullet',
+                sort=False
             )
             embed.add_field(
                 inline=False,
-                name='Name',
-                value=member.name
+                name='Previous Names',
+                value=previous_name
+            )
+
+        if member.previous_discriminator is not None:
+            previous_discriminator = format_list(
+                member.previous_discriminator,
+                symbol='bullet',
+                sort=False
             )
             embed.add_field(
                 inline=False,
-                name='Discriminator',
-                value=member.discriminator
+                name='Previous Discriminators',
+                value=previous_discriminator
             )
 
-            if member.nickname is not None:
-                embed.add_field(
-                    inline=False,
-                    name='Nickname',
-                    value=member.nickname
-                )
-
-            embed.add_field(
-                inline=False,
-                name='Role',
-                value=role.name
+        if member.previous_nickname is not None:
+            previous_nickname = format_list(
+                member.previous_nickname,
+                symbol='bullet',
+                sort=False
             )
             embed.add_field(
                 inline=False,
-                name='Created At',
-                value=member.created
-            )
-            embed.add_field(
-                inline=False,
-                name='Joined At',
-                value=member.joined
+                name='Previous Nicknames',
+                value=previous_nickname
             )
 
-            if member.updated_at is not None:
-                embed.add_field(
-                    inline=False,
-                    name='Updated At',
-                    value=member.updated
-                )
-
-            if member.previous_name is not None:
-                previous_name = format_list(
-                    member.previous_name,
-                    symbol='bullet',
-                    sort=False
-                )
-                embed.add_field(
-                    inline=False,
-                    name='Previous Names',
-                    value=previous_name
-                )
-
-            if member.previous_discriminator is not None:
-                previous_discriminator = format_list(
-                    member.previous_discriminator,
-                    symbol='bullet',
-                    sort=False
-                )
-                embed.add_field(
-                    inline=False,
-                    name='Previous Discriminators',
-                    value=previous_discriminator
-                )
-
-            if member.previous_nickname is not None:
-                previous_nickname = format_list(
-                    member.previous_nickname,
-                    symbol='bullet',
-                    sort=False
-                )
-                embed.add_field(
-                    inline=False,
-                    name='Previous Nicknames',
-                    value=previous_nickname
-                )
-
-            await ctx.send(embed=embed)
+        await ctx.send(embed=embed)
 
     @commands.command()
     async def created(self, ctx, *, identifier):
@@ -242,27 +233,26 @@ class Members(commands.Cog):
         their Discord account.
         """
 
-        try:
-            member_id = await get_member_by_id(self, ctx, identifier)
-        except MemberError:
-            await ctx.send('No member found.')
-        except TimeoutError:
-            await ctx.send('You have run out of time. Please try again.')
-        else:
-            row = dict(
-                await ActiveMembers
-                .select('display_name', 'created_at')
-                .where(ActiveMembers.discord_id == member_id)
-                .gino
-                .first()
-            )
+        interface = MemberInterface(ctx, identifier)
+        discord_id = await interface.get()
 
-            member = Member(row)
+        if discord_id is None:
+            return
 
-            await ctx.send(
-                f"{member.display_name} created their account "
-                f"on {member.created}"
-            )
+        row = dict(
+            await self.viking.guild.member
+            .select('display_name', 'created_at')
+            .where(self.viking.guild.member.discord_id == discord_id)
+            .gino
+            .first()
+        )
+
+        member = DiscordMember(row)
+
+        await ctx.send(
+            f"{member.display_name} created their account "
+            f"on {member.created}"
+        )
 
     @commands.command()
     async def id(self, ctx, *, identifier):
@@ -273,24 +263,23 @@ class Members(commands.Cog):
         member from an ID.
         """
 
-        try:
-            member_id = await get_member_by_id(self, ctx, identifier)
-        except MemberError:
-            await ctx.send('No member found.')
-        except TimeoutError:
-            await ctx.send('You have run out of time. Please try again.')
-        else:
-            row = dict(
-                await ActiveMembers
-                .select('name', 'discriminator')
-                .where(ActiveMembers.discord_id == member_id)
-                .gino
-                .first()
-            )
+        interface = MemberInterface(ctx, identifier)
+        discord_id = await interface.get()
 
-            member = Member(row)
+        if discord_id is None:
+            return
 
-            await ctx.send(f"{member.name}#{member.discriminator}")
+        row = dict(
+            await self.viking.guild.member
+            .select('name', 'discriminator')
+            .where(self.viking.guild.member.discord_id == discord_id)
+            .gino
+            .first()
+        )
+
+        member = DiscordMember(row)
+
+        await ctx.send(f"{member.name}#{member.discriminator}")
 
     @commands.command()
     async def joined(self, ctx, *, identifier):
@@ -301,28 +290,28 @@ class Members(commands.Cog):
         guild.
         """
 
-        try:
-            member_id = await get_member_by_id(self, ctx, identifier)
-        except MemberError:
-            await ctx.send('No member found.')
-        except TimeoutError:
-            await ctx.send('You have run out of time. Please try again.')
-        else:
-            row = dict(
-                await ActiveMembers
-                .select('display_name', 'joined_at')
-                .where(ActiveMembers.discord_id == member_id)
-                .gino
-                .first()
-            )
+        interface = MemberInterface(ctx, identifier)
+        discord_id = await interface.get()
 
-            member = Member(row)
+        if discord_id is None:
+            return
 
-            await ctx.send(
-                f"{member.display_name} joined the server on "
-                f"{member.joined}"
-            )
+        row = dict(
+            await self.viking.guild.member
+            .select('display_name', 'joined_at')
+            .where(self.viking.guild.member.discord_id == discord_id)
+            .gino
+            .first()
+        )
+
+        member = DiscordMember(row)
+
+        await ctx.send(
+            f"{member.display_name} joined the server on "
+            f"{member.joined}"
+        )
 
 
-def setup(viking):
-    viking.add_cog(Members(viking))
+async def setup(viking):
+    members = Members(viking)
+    await viking.add_cog(members)

@@ -1,7 +1,6 @@
 aiodns
 asyncpg
 cchardet
-discord.py[voice]
 gino
 paramiko
 pipdeptree
@@ -10,3 +9,5 @@ python-dateutil
 rapidfuzz
 tabulate
 uvloop; sys_platform == 'linux'
+
+git+https://github.com/Rapptz/discord.py#egg=discord.py[voice]

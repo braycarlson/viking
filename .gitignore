@@ -109,6 +109,7 @@ known_hosts
 # Viking
 *.mp3
 *.sh
+
 cogs/random.py
 images/
 logs/

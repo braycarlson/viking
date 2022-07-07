@@ -1,5 +1,6 @@
 import asyncio
 import logging
+
 from bot import Viking
 from contextlib import contextmanager
 from pathlib import Path
@@ -10,11 +11,8 @@ try:
 except ImportError:
     pass
 else:
-    asyncio.set_event_loop_policy(
-        uvloop.EventLoopPolicy()
-    )
-finally:
-    loop = asyncio.get_event_loop()
+    policy = uvloop.EventLoopPolicy()
+    asyncio.set_event_loop_policy(policy)
 
 
 @contextmanager
@@ -53,14 +51,15 @@ def logger():
             log.removeHandler(handler)
 
 
-def run():
+async def start():
     viking = Viking()
-    viking.run()
+    await viking.start()
 
 
 def main():
     with logger():
-        run()
+        bot = start()
+        asyncio.run(bot)
 
 
 if __name__ == '__main__':

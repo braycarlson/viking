@@ -1,11 +1,11 @@
 import asyncio
 import discord
 import logging
-from asyncio import TimeoutError
-from database.model import HiddenCommands
+
+from database.command import Hidden
 from discord.ext import commands
 from utilities.format import format_list
-from utilities.member import MemberError, get_member_by_id
+from utilities.member import MemberInterface
 from utilities.time import midnight, timeout
 
 
@@ -15,9 +15,10 @@ log = logging.getLogger(__name__)
 class Moderation(commands.Cog):
     def __init__(self, viking):
         self.viking = viking
-        self.viking.loop.create_task(
-            self.purge_spam()
-        )
+
+        # asyncio.create_task(
+        #     self.purge_spam()
+        # )
 
     async def purge_spam(self):
         """
@@ -50,7 +51,8 @@ class Moderation(commands.Cog):
         return overwrite
 
     @commands.command(hidden=True)
-    @commands.has_any_role('Administrator', 'Moderator')
+    @commands.bot_has_permissions(move_members=True)
+    @commands.has_permissions(move_members=True)
     async def afk(self, ctx, identifier):
         """
         *afk <identifier>
@@ -59,25 +61,24 @@ class Moderation(commands.Cog):
         designated voice channel.
         """
 
-        try:
-            member_id = await get_member_by_id(self, ctx, identifier)
-        except MemberError:
-            await ctx.send('No member found.')
-        except TimeoutError:
-            await ctx.send('You have run out of time. Please try again.')
-        else:
-            member = ctx.guild.get_member(member_id)
+        interface = MemberInterface(ctx, identifier)
+        discord_id = await interface.get()
 
-            try:
-                await member.edit(voice_channel=ctx.guild.afk_channel)
-            except discord.HTTPException:
-                await ctx.send(f"{member} could not be moved to Valhalla.")
-            else:
-                log.info(f"{ctx.author} moved {member} to Valhalla.")
+        if discord_id is None:
+            return
+
+        member = ctx.guild.get_member(discord_id)
+
+        try:
+            await member.edit(voice_channel=ctx.guild.afk_channel)
+        except discord.HTTPException:
+            await ctx.send(f"{member} could not be moved to Valhalla.")
+        else:
+            log.info(f"{ctx.author} moved {member} to Valhalla.")
 
     @commands.command(hidden=True)
     @commands.bot_has_permissions(ban_members=True)
-    @commands.has_any_role('Administrator', 'Moderator')
+    @commands.has_permissions(ban_members=True)
     async def ban(self, ctx, *, identifier):
         """
         *ban <identifier>
@@ -85,25 +86,25 @@ class Moderation(commands.Cog):
         A command that bans a member by name, nickname or ID.
         """
 
-        try:
-            member_id = await get_member_by_id(self, ctx, identifier)
-        except MemberError:
-            await ctx.send('No member found.')
-        except TimeoutError:
-            await ctx.send('You have run out of time. Please try again.')
-        else:
-            member = self.viking.get_user(member_id)
+        interface = MemberInterface(ctx, identifier)
+        discord_id = await interface.get()
 
-            try:
-                await ctx.guild.ban(member)
-            except discord.HTTPException:
-                await ctx.send(f"{member} could not be banned.")
-            else:
-                log.info(f"{ctx.author} banned {member}.")
+        if discord_id is None:
+            return
+
+        member = self.viking.get_user(discord_id)
+
+        try:
+            await ctx.guild.ban(member)
+        except discord.HTTPException:
+            await ctx.send(f"{member} could not be banned.")
+        else:
+            log.info(f"{ctx.author} banned {member}.")
 
     @commands.command(hidden=True)
-    @commands.has_any_role('Administrator', 'Moderator')
-    async def clear(self, ctx, limit):
+    @commands.bot_has_permissions(manage_messages=True)
+    @commands.has_permissions(manage_messages=True)
+    async def clear(self, ctx, limit: int):
         """
         *clear <limit>
 
@@ -115,7 +116,8 @@ class Moderation(commands.Cog):
         await ctx.channel.purge(limit=limit)
 
     @commands.command(hidden=True)
-    @commands.has_any_role('Administrator', 'Moderator')
+    @commands.bot_has_permissions(mute_members=True)
+    @commands.has_permissions(mute_members=True)
     async def deafen(self, ctx, identifier):
         """
         *deafen <identifier>
@@ -123,24 +125,24 @@ class Moderation(commands.Cog):
         A command that deafens a member by name, nickname or ID.
         """
 
-        try:
-            member_id = await get_member_by_id(self, ctx, identifier)
-        except MemberError:
-            await ctx.send('No member found.')
-        except TimeoutError:
-            await ctx.send('You have run out of time. Please try again.')
-        else:
-            member = ctx.guild.get_member(member_id)
+        interface = MemberInterface(ctx, identifier)
+        discord_id = await interface.get()
 
-            try:
-                await member.edit(deafen=True)
-            except discord.HTTPException:
-                await ctx.send(f"{member} could not be deafened.")
-            else:
-                log.info(f"{ctx.author} deafened {member}.")
+        if discord_id is None:
+            return
+
+        member = ctx.guild.get_member(discord_id)
+
+        try:
+            await member.edit(deafen=True)
+        except discord.HTTPException:
+            await ctx.send(f"{member} could not be deafened.")
+        else:
+            log.info(f"{ctx.author} deafened {member}.")
 
     @commands.command(hidden=True)
-    @commands.has_any_role('Administrator', 'Moderator')
+    @commands.bot_has_permissions(move_members=True)
+    @commands.has_permissions(move_members=True)
     async def disconnect(self, ctx, identifier):
         """
         *disconnect <identifier>
@@ -149,24 +151,22 @@ class Moderation(commands.Cog):
         nickname or ID.
         """
 
-        try:
-            member_id = await get_member_by_id(self, ctx, identifier)
-        except MemberError:
-            await ctx.send('No member found.')
-        except TimeoutError:
-            await ctx.send('You have run out of time. Please try again.')
-        else:
-            member = ctx.guild.get_member(member_id)
+        interface = MemberInterface(ctx, identifier)
+        discord_id = await interface.get()
 
-            try:
-                await member.edit(voice_channel=None)
-            except discord.HTTPException:
-                await ctx.send(f"{member} could not be disconnected.")
-            else:
-                log.info(f"{ctx.author} disconnected {member}.")
+        if discord_id is None:
+            return
+
+        member = ctx.guild.get_member(discord_id)
+
+        try:
+            await member.edit(voice_channel=None)
+        except discord.HTTPException:
+            await ctx.send(f"{member} could not be disconnected.")
+        else:
+            log.info(f"{ctx.author} disconnected {member}.")
 
     @commands.command(hidden=True)
-    @commands.has_any_role('Administrator', 'Moderator')
     async def hidden(self, ctx):
         """
         *hidden
@@ -175,7 +175,7 @@ class Moderation(commands.Cog):
         for administrators/moderators to use.
         """
 
-        rows = await HiddenCommands.select('name').gino.all()
+        rows = await Hidden.select('name').gino.all()
         commands = [dict(row).get('name') for row in rows]
 
         command = format_list(
@@ -190,7 +190,7 @@ class Moderation(commands.Cog):
 
     @commands.command(hidden=True)
     @commands.bot_has_permissions(kick_members=True)
-    @commands.has_any_role('Administrator', 'Moderator')
+    @commands.has_permissions(kick_members=True)
     async def kick(self, ctx, identifier):
         """
         *kick <identifier>
@@ -198,24 +198,22 @@ class Moderation(commands.Cog):
         A command that kicks a member by name, nickname or ID.
         """
 
-        try:
-            member_id = await get_member_by_id(self, ctx, identifier)
-        except MemberError:
-            await ctx.send('No member found.')
-        except TimeoutError:
-            await ctx.send('You have run out of time. Please try again.')
-        else:
-            member = self.viking.get_user(member_id)
+        interface = MemberInterface(ctx, identifier)
+        discord_id = await interface.get()
 
-            try:
-                await ctx.guild.kick(member)
-            except discord.HTTPException:
-                await ctx.send(f"{member} could not be kicked.")
-            else:
-                log.info(f"{ctx.author} kicked {member}.")
+        if discord_id is None:
+            return
+
+        member = self.viking.get_user(discord_id)
+
+        try:
+            await ctx.guild.kick(member)
+        except discord.HTTPException:
+            await ctx.send(f"{member} could not be kicked.")
+        else:
+            log.info(f"{ctx.author} kicked {member}.")
 
     @commands.command(hidden=True)
-    @commands.has_any_role('Administrator', 'Moderator')
     async def load(self, ctx, *, extension):
         """
         *load <extension>
@@ -226,14 +224,15 @@ class Moderation(commands.Cog):
         extension = f"cogs.{extension}"
 
         try:
-            self.viking.load_extension(extension)
+            await self.viking.load_extension(extension)
         except ModuleNotFoundError:
             await ctx.send(f"`{extension}` does not exist.")
         else:
             await ctx.send(f"`{extension}` was successfully loaded.")
 
     @commands.command(hidden=True)
-    @commands.has_any_role('Administrator', 'Moderator')
+    @commands.bot_has_permissions(mute_members=True)
+    @commands.has_permissions(mute_members=True)
     async def mute(self, ctx, identifier):
         """
         *mute <identifier>
@@ -241,24 +240,24 @@ class Moderation(commands.Cog):
         A command that mutes a member by name, nickname or ID.
         """
 
-        try:
-            member_id = await get_member_by_id(self, ctx, identifier)
-        except MemberError:
-            await ctx.send('No member found.')
-        except TimeoutError:
-            await ctx.send('You have run out of time. Please try again.')
-        else:
-            member = ctx.guild.get_member(member_id)
+        interface = MemberInterface(ctx, identifier)
+        discord_id = await interface.get()
 
-            try:
-                await member.edit(mute=True)
-            except discord.HTTPException:
-                await ctx.send(f"{member} could not be muted.")
-            else:
-                log.info(f"{ctx.author} muted {member}.")
+        if discord_id is None:
+            return
+
+        member = ctx.guild.get_member(discord_id)
+
+        try:
+            await member.edit(mute=True)
+        except discord.HTTPException:
+            await ctx.send(f"{member} could not be muted.")
+        else:
+            log.info(f"{ctx.author} muted {member}.")
 
     @commands.command(hidden=True)
-    @commands.has_any_role('Administrator', 'Moderator')
+    @commands.bot_has_permissions(manage_channels=True)
+    @commands.has_permissions(manage_channels=True)
     async def purge(self, ctx):
         """
         *purge
@@ -269,7 +268,6 @@ class Moderation(commands.Cog):
         await ctx.channel.purge()
 
     @commands.command(hidden=True)
-    @commands.has_any_role('Administrator', 'Moderator')
     async def reload(self, ctx, *, extension):
         """
         *reload <extension>
@@ -280,15 +278,16 @@ class Moderation(commands.Cog):
         extension = f"cogs.{extension}"
 
         try:
-            self.viking.unload_extension(extension)
-            self.viking.load_extension(extension)
+            await self.viking.unload_extension(extension)
+            await self.viking.load_extension(extension)
         except ModuleNotFoundError:
             await ctx.send(f"`{extension}` does not exist.")
         else:
             await ctx.send(f"`{extension}` was successfully reloaded.")
 
     @commands.command(hidden=True)
-    @commands.has_any_role('Administrator', 'Moderator')
+    @commands.bot_has_permissions(mute_members=True)
+    @commands.has_permissions(mute_members=True)
     async def restrict(self, ctx, *, identifier):
         """
         *restrict <identifier>
@@ -296,139 +295,138 @@ class Moderation(commands.Cog):
         A command that restricts a member by name, nickname or ID.
         """
 
-        try:
-            member_id = await get_member_by_id(self, ctx, identifier)
-        except MemberError:
-            await ctx.send('No member found.')
-        except TimeoutError:
-            await ctx.send('You have run out of time. Please try again.')
-        else:
-            member = ctx.guild.get_member(member_id)
+        interface = MemberInterface(ctx, identifier)
+        discord_id = await interface.get()
 
-            try:
-                for channel in ctx.guild.text_channels:
-                    overwrite = await self.chat_restrict()
-                    await channel.set_permissions(member, overwrite=overwrite)
-            except discord.HTTPException:
-                await ctx.send(f"{member} could not be chat-restricted.")
-            else:
-                log.info(f"{ctx.author} chat-restricted {member}.")
+        if discord_id is None:
+            return
+
+        member = ctx.guild.get_member(discord_id)
+
+        try:
+            for channel in ctx.guild.text_channels:
+                overwrite = await self.chat_restrict()
+                await channel.set_permissions(member, overwrite=overwrite)
+        except discord.HTTPException:
+            await ctx.send(f"{member} could not be chat-restricted.")
+        else:
+            log.info(f"{ctx.author} chat-restricted {member}.")
 
     @commands.command(hidden=True)
-    @commands.has_any_role('Administrator', 'Moderator')
-    async def softdeafen(self, ctx, seconds, *, identifier):
+    @commands.bot_has_permissions(mute_members=True)
+    @commands.has_permissions(mute_members=True)
+    async def softdeafen(self, ctx, seconds: int, *, identifier):
         """
         *softdeafen <seconds> <identifier>
 
         A command that soft-deafens a member by name, nickname or ID.
         """
 
+        interface = MemberInterface(ctx, identifier)
+        discord_id = await interface.get()
+
+        if discord_id is None:
+            return
+
+        member = ctx.guild.get_member(discord_id)
+
         try:
-            member_id = await get_member_by_id(self, ctx, identifier)
-        except MemberError:
-            await ctx.send('No member found.')
-        except TimeoutError:
-            await ctx.send('You have run out of time. Please try again.')
-        else:
-            member = ctx.guild.get_member(member_id)
-
-            try:
-                if seconds <= 3600:
-                    await member.edit(deafen=True)
-                else:
-                    await ctx.send('A soft-deafen must be less than an hour.')
-            except discord.HTTPException:
-                await ctx.send(f"{member} could not be soft-deafened.")
+            if seconds <= 3600:
+                await member.edit(deafen=True)
             else:
-                log.info(f"{ctx.author} soft-deafened {member}.")
+                await ctx.send('A soft-deafen must be less than an hour.')
+        except discord.HTTPException:
+            await ctx.send(f"{member} could not be soft-deafened.")
+        else:
+            log.info(f"{ctx.author} soft-deafened {member}.")
 
-                while not self.viking.is_closed():
-                    time = timeout(seconds=seconds)
-                    await asyncio.sleep(time)
+            while not self.viking.is_closed():
+                time = timeout(seconds=seconds)
+                await asyncio.sleep(time)
 
-                    await member.edit(deafen=False)
-                    break
+                await member.edit(deafen=False)
+                break
 
     @commands.command(hidden=True)
-    @commands.has_any_role('Administrator', 'Moderator')
-    async def softmute(self, ctx, seconds, *, identifier):
+    @commands.bot_has_permissions(mute_members=True)
+    @commands.has_permissions(mute_members=True)
+    async def softmute(self, ctx, seconds: int, *, identifier):
         """
         *softmute <seconds> <identifier>
 
         A command that soft-mutes a member by name, nickname or ID.
         """
 
+        interface = MemberInterface(ctx, identifier)
+        discord_id = await interface.get()
+
+        if discord_id is None:
+            return
+
+        member = ctx.guild.get_member(discord_id)
+
         try:
-            member_id = await get_member_by_id(self, ctx, identifier)
-        except MemberError:
-            await ctx.send('No member found.')
-        except TimeoutError:
-            await ctx.send('You have run out of time. Please try again.')
-        else:
-            member = ctx.guild.get_member(member_id)
-
-            try:
-                if seconds <= 3600:
-                    await member.edit(mute=True)
-                else:
-                    await ctx.send('A soft-mute must be less than an hour.')
-            except discord.HTTPException:
-                await ctx.send(f"{member} could not be soft-muted.")
+            if seconds <= 3600:
+                await member.edit(mute=True)
             else:
-                log.info(f"{ctx.author} soft-muted {member}.")
+                await ctx.send('A soft-mute must be less than an hour.')
+        except discord.HTTPException:
+            await ctx.send(f"{member} could not be soft-muted.")
+        else:
+            log.info(f"{ctx.author} soft-muted {member}.")
 
-                while not self.viking.is_closed():
-                    time = timeout(seconds=seconds)
-                    await asyncio.sleep(time)
+            while not self.viking.is_closed():
+                time = timeout(seconds=seconds)
+                await asyncio.sleep(time)
 
-                    await member.edit(mute=False)
-                    break
+                await member.edit(mute=False)
+                break
 
     @commands.command(hidden=True)
-    @commands.has_any_role('Administrator', 'Moderator')
-    async def softrestrict(self, ctx, seconds, *, identifier):
+    @commands.bot_has_permissions(mute_members=True)
+    @commands.has_permissions(mute_members=True)
+    async def softrestrict(self, ctx, seconds: int, *, identifier):
         """
         *softrestrict <seconds> <identifier>
 
         A command that soft-restricts a member by name, nickname or ID.
         """
 
+        interface = MemberInterface(ctx, identifier)
+        discord_id = await interface.get()
+
+        if discord_id is None:
+            return
+
+        member = ctx.guild.get_member(discord_id)
+
         try:
-            member_id = await get_member_by_id(self, ctx, identifier)
-        except MemberError:
-            await ctx.send('No member found.')
-        except TimeoutError:
-            await ctx.send('You have run out of time. Please try again.')
-        else:
-            member = ctx.guild.get_member(member_id)
-
-            try:
-                if seconds <= 3600:
-                    for channel in ctx.guild.text_channels:
-                        overwrite = await self.chat_restrict()
-                        await channel.set_permissions(
-                            member,
-                            overwrite=overwrite
-                        )
-                else:
-                    await ctx.send('A soft-restrict must be less than an hour.')
-            except discord.HTTPException:
-                await ctx.send(f"{member} could not be chat-restricted.")
+            if seconds <= 3600:
+                for channel in ctx.guild.text_channels:
+                    overwrite = await self.chat_restrict()
+                    await channel.set_permissions(
+                        member,
+                        overwrite=overwrite
+                    )
             else:
-                log.info(f"{ctx.author} chat-restricted {member}.")
+                await ctx.send('A soft-restrict must be less than an hour.')
+        except discord.HTTPException:
+            await ctx.send(f"{member} could not be chat-restricted.")
+        else:
+            log.info(f"{ctx.author} chat-restricted {member}.")
 
-                while not self.viking.is_closed():
-                    time = timeout(seconds=seconds)
-                    await asyncio.sleep(time)
+            while not self.viking.is_closed():
+                time = timeout(seconds=seconds)
+                await asyncio.sleep(time)
 
-                    for channel in ctx.guild.text_channels:
-                        await channel.set_permissions(member, overwrite=None)
+                for channel in ctx.guild.text_channels:
+                    await channel.set_permissions(member, overwrite=None)
 
-                    break
+                break
 
     @commands.command(hidden=True)
     @commands.bot_has_permissions(ban_members=True)
-    @commands.has_any_role('Administrator', 'Moderator')
+    @commands.has_permissions(ban_members=True)
     async def unban(self, ctx, *, identifier):
         """
         *unban <identifier>
@@ -436,29 +434,24 @@ class Moderation(commands.Cog):
         A command that unbans a member by name, nickname or ID.
         """
 
-        try:
-            member_id = await get_member_by_id(
-                self,
-                ctx,
-                identifier,
-                table='banned_members'
-            )
-        except MemberError:
-            await ctx.send('No member found.')
-        except TimeoutError:
-            await ctx.send('You have run out of time. Please try again.')
-        else:
-            member = await self.viking.fetch_user(member_id)
+        interface = MemberInterface(ctx, identifier)
+        discord_id = await interface.get()
 
-            try:
-                await ctx.guild.unban(member)
-            except discord.HTTPException:
-                await ctx.send(f"{member} could not be unbanned.")
-            else:
-                log.info(f"{ctx.author} unbanned {member}.")
+        if discord_id is None:
+            return
+
+        member = await self.viking.fetch_user(discord_id)
+
+        try:
+            await ctx.guild.unban(member)
+        except discord.HTTPException:
+            await ctx.send(f"{member} could not be unbanned.")
+        else:
+            log.info(f"{ctx.author} unbanned {member}.")
 
     @commands.command(hidden=True)
-    @commands.has_any_role('Administrator', 'Moderator')
+    @commands.bot_has_permissions(mute_members=True)
+    @commands.has_permissions(mute_members=True)
     async def undeafen(self, ctx, identifier):
         """
         *undeafen <identifier>
@@ -466,24 +459,22 @@ class Moderation(commands.Cog):
         A command that undeafens a member by name, nickname or ID.
         """
 
-        try:
-            member_id = await get_member_by_id(self, ctx, identifier)
-        except MemberError:
-            await ctx.send('No member found.')
-        except TimeoutError:
-            await ctx.send('You have run out of time. Please try again.')
-        else:
-            member = ctx.guild.get_member(member_id)
+        interface = MemberInterface(ctx, identifier)
+        discord_id = await interface.get()
 
-            try:
-                await member.edit(deafen=False)
-            except discord.HTTPException:
-                await ctx.send(f"{member} could not be undeafened.")
-            else:
-                log.info(f"{ctx.author} undeafened {member}.")
+        if discord_id is None:
+            return
+
+        member = ctx.guild.get_member(discord_id)
+
+        try:
+            await member.edit(deafen=False)
+        except discord.HTTPException:
+            await ctx.send(f"{member} could not be undeafened.")
+        else:
+            log.info(f"{ctx.author} undeafened {member}.")
 
     @commands.command(hidden=True)
-    @commands.has_any_role('Administrator', 'Moderator')
     async def unload(self, ctx, *, extension):
         """
         *unload <extension>
@@ -494,14 +485,15 @@ class Moderation(commands.Cog):
         extension = f"cogs.{extension}"
 
         try:
-            self.viking.unload_extension(extension)
+            await self.viking.unload_extension(extension)
         except commands.ExtensionNotLoaded:
             await ctx.send(f"`{extension}` is not loaded or does not exist.")
         else:
             await ctx.send(f"`{extension}` was successfully unloaded.")
 
     @commands.command(hidden=True)
-    @commands.has_any_role('Administrator', 'Moderator')
+    @commands.bot_has_permissions(mute_members=True)
+    @commands.has_permissions(mute_members=True)
     async def unmute(self, ctx, identifier):
         """
         *unmute <identifier>
@@ -509,24 +501,24 @@ class Moderation(commands.Cog):
         A command that unmutes a member by name, nickname or ID.
         """
 
-        try:
-            member_id = await get_member_by_id(self, ctx, identifier)
-        except MemberError:
-            await ctx.send('No member found.')
-        except TimeoutError:
-            await ctx.send('You have run out of time. Please try again.')
-        else:
-            member = ctx.guild.get_member(member_id)
+        interface = MemberInterface(ctx, identifier)
+        discord_id = await interface.get()
 
-            try:
-                await member.edit(mute=False)
-            except discord.HTTPException:
-                await ctx.send(f"{member} could not be unmuted.")
-            else:
-                log.info(f"{ctx.author} unmuted {member}.")
+        if discord_id is None:
+            return
+
+        member = ctx.guild.get_member(discord_id)
+
+        try:
+            await member.edit(mute=False)
+        except discord.HTTPException:
+            await ctx.send(f"{member} could not be unmuted.")
+        else:
+            log.info(f"{ctx.author} unmuted {member}.")
 
     @commands.command(hidden=True)
-    @commands.has_any_role('Administrator', 'Moderator')
+    @commands.bot_has_permissions(mute_members=True)
+    @commands.has_permissions(mute_members=True)
     async def unrestrict(self, ctx, *, identifier):
         """
         *unrestrict <identifier>
@@ -534,23 +526,23 @@ class Moderation(commands.Cog):
         A command that unrestricts a member by name, nickname or ID.
         """
 
+        interface = MemberInterface(ctx, identifier)
+        discord_id = await interface.get()
+
+        if discord_id is None:
+            return
+
+        member = ctx.guild.get_member(discord_id)
+
         try:
-            member_id = await get_member_by_id(self, ctx, identifier)
-        except MemberError:
-            await ctx.send('No member found.')
-        except TimeoutError:
-            await ctx.send('You have run out of time. Please try again.')
+            for channel in ctx.guild.text_channels:
+                await channel.set_permissions(member, overwrite=None)
+        except discord.HTTPException:
+            await ctx.send(f"{member} could not be unrestricted.")
         else:
-            member = ctx.guild.get_member(member_id)
-
-            try:
-                for channel in ctx.guild.text_channels:
-                    await channel.set_permissions(member, overwrite=None)
-            except discord.HTTPException:
-                await ctx.send(f"{member} could not be unrestricted.")
-            else:
-                log.info(f"{ctx.author} unrestricted {member}.")
+            log.info(f"{ctx.author} unrestricted {member}.")
 
 
-def setup(viking):
-    viking.add_cog(Moderation(viking))
+async def setup(viking):
+    moderation = Moderation(viking)
+    await viking.add_cog(moderation)

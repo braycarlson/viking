@@ -1,13 +1,7 @@
 import discord
-from database.model import (
-    database,
-    ActiveMembers,
-    BannedMembers,
-    GuildRoles,
-    RemovedMembers
-)
+
 from datetime import datetime
-from utilities.member import Member
+from utilities.member import DiscordMember
 
 
 class MemberEvent:
@@ -17,154 +11,96 @@ class MemberEvent:
     # Member Checks
 
     async def is_member_banned(self, member):
+        condition = (
+            (self.viking.guild.member.discord_id == member) &
+            (self.viking.guild.member.banned_at.is_(None))
+        )
+
         return (
-            await BannedMembers
+            await self.viking.guild.member
             .query
-            .where(BannedMembers.discord_id == member)
+            .where(condition)
             .gino
             .first()
         )
 
     async def is_member_removed(self, member):
+        condition = (
+            (self.viking.guild.member.discord_id == member) &
+            (self.viking.guild.member.removed_at.is_(None))
+        )
+
         return (
-            await RemovedMembers
+            await self.viking.guild.member
             .query
-            .where(RemovedMembers.discord_id == member)
+            .where(condition)
             .gino
             .first()
         )
 
     # Member Events
 
-    async def member_create(self, member: discord.Member):
-
-        await ActiveMembers.create(
+    async def member_create(self, member):
+        await self.viking.guild.member.create(
             discord_id=member.id,
             name=member.name,
             discriminator=member.discriminator,
             display_name=member.display_name,
             nickname=member.nick,
-            role_id=self.viking.normal,
+            role_id=None,
             bot=member.bot,
             created_at=member.created_at,
             joined_at=member.joined_at
         )
 
     async def member_ban(self, member):
-        now = datetime.now()
+        banned_at = datetime.now()
 
         (
-            await BannedMembers
-            .insert()
-            .from_select(
-                BannedMembers.__table__.columns.keys(),
-                database
-                .select('*')
-                .where(ActiveMembers.discord_id == member)
-            )
-            .gino
-            .status()
-        )
-
-        (
-            await BannedMembers
-            .update.values(deleted_at=now)
-            .where(BannedMembers.discord_id == member)
+            await self.viking.guild.member
+            .update
+            .values(banned_at=banned_at)
+            .where(self.viking.guild.member.discord_id == member)
             .gino
             .status()
         )
 
     async def member_unban(self, member):
-        now = datetime.now()
+        banned_at = None
 
         (
-            await RemovedMembers
-            .insert()
-            .from_select(
-                RemovedMembers.__table__.columns.keys(),
-                database
-                .select('*')
-                .where(BannedMembers.discord_id == member)
-            )
-            .gino
-            .status()
-        )
-
-        (
-            await RemovedMembers
+            await self.viking.guild.member
             .update
-            .values(removed_at=now)
-            .where(RemovedMembers.discord_id == member)
+            .values(banned_at=banned_at)
+            .where(self.viking.guild.member.discord_id == member)
             .gino
             .status()
         )
 
     async def member_remove(self, member):
-        now = datetime.now()
+        removed_at = datetime.now()
 
         (
-            await RemovedMembers
-            .insert()
-            .from_select(
-                RemovedMembers.__table__.columns.keys(),
-                database
-                .select('*')
-                .where(ActiveMembers.discord_id == member)
-            )
-            .gino
-            .status()
-        )
-
-        (
-            await RemovedMembers
+            await self.viking.guild.member
             .update
-            .values(removed_at=now)
-            .where(RemovedMembers.discord_id == member)
+            .values(removed_at=removed_at)
+            .where(self.viking.guild.member.discord_id == member)
             .gino
             .status()
         )
 
     async def member_restore(self, member):
+        removed_at = None
+
         (
-            await ActiveMembers
-            .insert()
-            .from_select(
-                ActiveMembers.__table__.columns.keys(),
-                database
-                .select('*')
-                .where(RemovedMembers.discord_id == member)
-            )
+            await self.viking.guild.member
+            .update
+            .values(removed_at=removed_at)
+            .where(self.viking.guild.member.discord_id == member)
             .gino
             .status()
         )
 
-    async def member_delete(self, member, table='members'):
-        if table == 'members':
-            (
-                await ActiveMembers
-                .delete
-                .where(ActiveMembers.discord_id == member)
-                .gino
-                .status()
-            )
-
-        if table == 'banned_members':
-            (
-                await BannedMembers
-                .delete
-                .where(BannedMembers.discord_id == member)
-                .gino
-                .status()
-            )
-
-        if table == 'removed_members':
-            (
-                await RemovedMembers
-                .delete
-                .where(RemovedMembers.discord_id == member)
-                .gino
-                .status()
-            )
 
     # Member Attributes
 
@@ -176,14 +112,14 @@ class MemberEvent:
         now = datetime.now()
 
         (
-            await ActiveMembers
+            await self.viking.guild.member
             .update
             .values(
                 name=after.name,
                 display_name=after.display_name,
                 updated_at=now
             )
-            .where(ActiveMembers.discord_id == after.id)
+            .where(self.viking.guild.member.discord_id == after.id)
             .gino
             .status()
         )
@@ -192,13 +128,13 @@ class MemberEvent:
         now = datetime.now()
 
         (
-            await ActiveMembers
+            await self.viking.guild.member
             .update
             .values(
                 discriminator=after.discriminator,
                 updated_at=now
             )
-            .where(ActiveMembers.discord_id == after.id)
+            .where(self.viking.guild.member.discord_id == after.id)
             .gino
             .status()
         )
@@ -207,29 +143,29 @@ class MemberEvent:
         now = datetime.now()
 
         (
-            await ActiveMembers
+            await self.viking.guild.member
             .update
             .values(
                 nickname=after.nick,
                 display_name=after.display_name,
                 updated_at=now
             )
-            .where(ActiveMembers.discord_id == after.id)
+            .where(self.viking.guild.member.discord_id == after.id)
             .gino
             .status()
         )
 
     async def member_role_update(self, before, after):
-        now = datetime.now()
+        updated_at = datetime.now()
 
         (
-            await ActiveMembers
+            await self.viking.guild.member
             .update
             .values(
                 role_id=after.top_role.id,
-                updated_at=now
+                updated_at=updated_at
             )
-            .where(ActiveMembers.discord_id == after.id)
+            .where(self.viking.guild.member.discord_id == after.id)
             .gino
             .status()
         )
@@ -242,18 +178,18 @@ class MemberEvent:
         now = datetime.now()
 
         (
-            await ActiveMembers
+            await self.viking.guild.member
             .update
             .values(
                 name=after.name,
-                previous_name=database.func.array_prepend(
+                previous_name=self.viking.guild.engine.func.array_prepend(
                     before.name,
-                    ActiveMembers.previous_name
+                    self.viking.guild.member.previous_name
                 ),
                 display_name=after.display_name,
                 updated_at=now
             )
-            .where(ActiveMembers.discord_id == after.id)
+            .where(self.viking.guild.member.discord_id == after.id)
             .gino
             .status()
         )
@@ -262,17 +198,17 @@ class MemberEvent:
         now = datetime.now()
 
         (
-            await ActiveMembers
+            await self.viking.guild.member
             .update
             .values(
                 discriminator=after.discriminator,
-                previous_discriminator=database.func.array_prepend(
+                previous_discriminator=self.viking.guild.engine.func.array_prepend(
                     before.discriminator,
-                    ActiveMembers.previous_discriminator
+                    self.viking.guild.member.previous_discriminator
                 ),
                 updated_at=now
             )
-            .where(ActiveMembers.discord_id == after.id)
+            .where(self.viking.guild.member.discord_id == after.id)
             .gino
             .status()
         )
@@ -281,18 +217,18 @@ class MemberEvent:
         now = datetime.now()
 
         (
-            await ActiveMembers
+            await self.viking.guild.member
             .update
             .values(
                 nickname=after.nick,
-                previous_nickname=database.func.array_prepend(
+                previous_nickname=self.viking.guild.engine.func.array_prepend(
                     before.nick,
-                    ActiveMembers.previous_nickname
+                    self.viking.guild.member.previous_nickname
                 ),
                 display_name=after.display_name,
                 updated_at=now
             )
-            .where(ActiveMembers.discord_id == after.id)
+            .where(self.viking.guild.member.discord_id == after.id)
             .gino
             .status()
         )
@@ -304,14 +240,14 @@ class MemberEvent:
 
     async def get_old_record(self, member):
         row = (
-            await ActiveMembers.select(
+            await self.viking.guild.member.select(
                 'name',
                 'discriminator',
                 'nickname',
                 'removed_at',
-                'deleted_at'
+                'banned_at'
             )
-            .where(ActiveMembers.discord_id == member)
+            .where(self.viking.guild.member.discord_id == member)
             .gino
             .first()
         )
@@ -321,15 +257,15 @@ class MemberEvent:
     async def old_name_update(self, member, name):
         if name != member.name:
             (
-                await ActiveMembers
+                await self.viking.guild.member
                 .update
                 .values(
-                    previous_name=database.func.array_prepend(
+                    previous_name=self.viking.guild.engine.func.array_prepend(
                         name,
-                        ActiveMembers.previous_name
+                        self.viking.guild.member.previous_name
                     ),
                 )
-                .where(ActiveMembers.discord_id == member.id)
+                .where(self.viking.guild.member.discord_id == member.id)
                 .gino
                 .status()
             )
@@ -337,58 +273,58 @@ class MemberEvent:
     async def old_discriminator_update(self, member, discriminator):
         if discriminator != member.discriminator:
             (
-                await ActiveMembers
+                await self.viking.guild.member
                 .update
                 .values(
-                    previous_discriminator=database.func.array_prepend(
+                    previous_discriminator=self.viking.guild.engine.func.array_prepend(
                         discriminator,
-                        ActiveMembers.previous_discriminator
+                        self.viking.guild.member.previous_discriminator
                     ),
-                ).where(ActiveMembers.discord_id == member.id)
+                ).where(self.viking.guild.member.discord_id == member.id)
                 .gino
                 .status()
             )
 
-    async def old_nickname_update(self, member: discord.Member, nickname: str):
+    async def old_nickname_update(self, member, nickname):
         if nickname != member.nick:
             (
-                await ActiveMembers
+                await self.viking.guild.member
                 .update
                 .values(
-                    previous_nickname=database.func.array_prepend(
+                    previous_nickname=self.viking.guild.engine.func.array_prepend(
                         nickname,
-                        ActiveMembers.previous_nickname
+                        self.viking.guild.member.previous_nickname
                     ),
                 )
-                .where(ActiveMembers.discord_id == member.id)
+                .where(self.viking.guild.member.discord_id == member.id)
                 .gino
                 .status()
             )
 
-    async def member_update(self, member: discord.Member):
-        now = datetime.now()
+    async def member_update(self, member):
+        joined_at, updated_at = datetime.now(), datetime.now()
         row = await self.get_old_record(member.id)
-        old = Member(row)
+        old = DiscordMember(row)
 
         await self.old_name_update(member, old.name)
         await self.old_discriminator_update(member, old.discriminator)
         await self.old_nickname_update(member, old.nickname)
 
         (
-            await ActiveMembers
+            await self.viking.guild.member
             .update
             .values(
                 name=member.name,
                 discriminator=member.discriminator,
                 display_name=member.display_name,
                 nickname=member.nick,
-                role_id=self.viking.normal,
-                joined_at=now,
-                updated_at=now,
+                role_id=None,
+                joined_at=joined_at,
+                updated_at=updated_at,
                 removed_at=old.removed_at,
-                deleted_at=old.deleted_at
+                banned_at=old.banned_at
             )
-            .where(ActiveMembers.discord_id == member.id)
+            .where(self.viking.guild.member.discord_id == member.id)
             .gino
             .status()
         )
@@ -399,7 +335,7 @@ class RoleEvent:
         self.viking = viking
 
     async def role_create(self, role):
-        await GuildRoles.create(
+        await self.viking.guild.role.create(
             id=role.id,
             name=role.name,
             colour=str(role.colour),
@@ -413,9 +349,9 @@ class RoleEvent:
 
     async def role_add(self):
         rows = (
-            await ActiveMembers
+            await self.viking.guild.member
             .select('discord_id')
-            .where(ActiveMembers.role_id == 186994904365400064)
+            .where(self.viking.guild.member.role_id == 186994904365400064)
             .gino
             .all()
         )
@@ -429,9 +365,9 @@ class RoleEvent:
             member = guild.get_member(discord_id)
             await member.add_roles(role)
 
-    async def role_update(self, role: discord.Role):
+    async def role_update(self, role):
         (
-            await GuildRoles
+            await self.viking.guild.role
             .update
             .values(
                 id=role.id,
@@ -444,42 +380,42 @@ class RoleEvent:
                 is_default=role.is_default(),
                 created_at=role.created_at
             )
-            .where(GuildRoles.id == role.id)
+            .where(self.viking.guild.role.id == role.id)
             .gino
             .status()
         )
 
-    async def role_delete(self, role_id: int):
+    async def role_delete(self, role_id):
         (
-            await GuildRoles
+            await self.viking.guild.role
             .delete
-            .where(GuildRoles.id == role_id)
+            .where(self.viking.guild.role.id == role_id)
             .gino
             .status()
         )
 
-    async def role_replace(self, after: discord.Role):
-        now = datetime.now()
+    async def role_replace(self, after):
+        updated_at = datetime.now()
 
         for guild in self.viking.guilds:
             for member in guild.members:
                 row = (
-                    await ActiveMembers
+                    await self.viking.guild.member
                     .select('role_id')
-                    .where(ActiveMembers.discord_id == member.id)
+                    .where(self.viking.guild.member.discord_id == member.id)
                     .gino
                     .scalar()
                 )
 
                 if row != member.top_role.id:
                     (
-                        await ActiveMembers
+                        await self.viking.guild.member
                         .update
                         .values(
                             role_id=after.id,
-                            updated_at=now
+                            updated_at=updated_at
                         )
-                        .where(ActiveMembers.discord_id == member.id)
+                        .where(self.viking.guild.member.discord_id == member.id)
                         .gino
                         .status()
                     )

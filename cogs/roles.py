@@ -1,10 +1,17 @@
 import discord
 import logging
-from database.model import GuildRoles
+
+from database.viking import Role
 from discord.ext import commands
 from utilities.event import RoleEvent
-from utilities.member import MemberError, get_member_by_id
-from utilities.role import Role, RoleError, get_role_by_id, check_for_role
+from utilities.member import MemberInterface
+from utilities.role import (
+    check_for_role,
+    DiscordRole,
+    DiscordRoleError,
+    get_role_by_id
+)
+
 
 log = logging.getLogger(__name__)
 
@@ -22,6 +29,7 @@ class Roles(commands.Cog):
         An event that is called when a role is created.
         """
 
+        await self.viking.update(role.guild.id)
         await self.event.role_create(role)
 
     @commands.Cog.listener()
@@ -30,6 +38,7 @@ class Roles(commands.Cog):
         An event that is called when a role is deleted.
         """
 
+        await self.viking.update(role.guild.id)
         await self.event.role_add()
         await self.event.role_delete(role.id)
 
@@ -39,6 +48,7 @@ class Roles(commands.Cog):
         An event that is called when a role is updated.
         """
 
+        await self.viking.update(before.guild.id)
         await self.event.role_update(after)
 
         # If the role hierarchy is changed, assign the role with the
@@ -50,7 +60,8 @@ class Roles(commands.Cog):
     # Commands
 
     @commands.command(hidden=True)
-    @commands.has_any_role('Administrator')
+    @commands.bot_has_permissions(manage_roles=True)
+    @commands.has_permissions(manage_roles=True)
     async def addrole(self, ctx, name, *, identifier):
         """
         *addrole <role> <identifier>
@@ -58,25 +69,25 @@ class Roles(commands.Cog):
         A command that adds a role to a member by name, nickname or ID.
         """
 
-        try:
-            member_id = await get_member_by_id(self, ctx, identifier)
-        except MemberError:
-            await ctx.send('No member found.')
-        except TimeoutError:
-            await ctx.send('You have run out of time. Please try again.')
-        else:
-            member = ctx.guild.get_member(member_id)
-            role = discord.utils.get(ctx.guild.roles, name=name)
+        interface = MemberInterface(ctx, identifier)
+        discord_id = await interface.get()
 
-            try:
-                await member.add_roles(role)
-            except discord.HTTPException:
-                await ctx.send(f"{member} could not be assigned the {role} role.")
-            else:
-                log.info(f"{ctx.author} assigned the role {role} to {member}.")
+        if discord_id is None:
+            return
+
+        member = ctx.guild.get_member(discord_id)
+        role = discord.utils.get(ctx.guild.roles, name=name)
+
+        try:
+            await member.add_roles(role)
+        except discord.HTTPException:
+            await ctx.send(f"{member} could not be assigned the {role} role.")
+        else:
+            log.info(f"{ctx.author} assigned the role {role} to {member}.")
 
     @commands.command(hidden=True)
-    @commands.has_any_role('Administrator')
+    @commands.bot_has_permissions(manage_roles=True)
+    @commands.has_permissions(manage_roles=True)
     async def createrole(self, ctx, *, name):
         """
         *createrole <name>
@@ -95,10 +106,11 @@ class Roles(commands.Cog):
             else:
                 log.info(f"{ctx.author} created the role {name}.")
         else:
-            await ctx.send(f"A role with that name already exists.")
+            await ctx.send('A role with that name already exists.')
 
     @commands.command(hidden=True)
-    @commands.has_any_role('Administrator')
+    @commands.bot_has_permissions(manage_roles=True)
+    @commands.has_permissions(manage_roles=True)
     async def deleterole(self, ctx, *, name):
         """
         *deleterole <name>
@@ -122,7 +134,8 @@ class Roles(commands.Cog):
             await ctx.send('No role found.')
 
     @commands.command(hidden=True)
-    @commands.has_any_role('Administrator')
+    @commands.bot_has_permissions(manage_roles=True)
+    @commands.has_permissions(manage_roles=True)
     async def removerole(self, ctx, name, *, identifier):
         """
         *removerole <role> <identifier>
@@ -130,22 +143,21 @@ class Roles(commands.Cog):
         A command that removes a role from a member by name, nickname or ID.
         """
 
-        try:
-            member_id = await get_member_by_id(self, ctx, identifier)
-        except MemberError:
-            await ctx.send('No member found.')
-        except TimeoutError:
-            await ctx.send('You have run out of time. Please try again.')
-        else:
-            member = ctx.guild.get_member(member_id)
-            role = discord.utils.get(ctx.guild.roles, name=name)
+        interface = MemberInterface(ctx, identifier)
+        discord_id = await interface.get()
 
-            try:
-                await member.remove_roles(role)
-            except discord.HTTPException:
-                await ctx.send(f"The {role} role could not be removed from {member}.")
-            else:
-                log.info(f"{ctx.author} removed the role {role} from {member}.")
+        if discord_id is None:
+            return
+
+        member = ctx.guild.get_member(discord_id)
+        role = discord.utils.get(ctx.guild.roles, name=name)
+
+        try:
+            await member.remove_roles(role)
+        except discord.HTTPException:
+            await ctx.send(f"The {role} role could not be removed from {member}.")
+        else:
+            log.info(f"{ctx.author} removed the role {role} from {member}.")
 
     @commands.command()
     async def role(self, ctx, *, identifier):
@@ -157,19 +169,19 @@ class Roles(commands.Cog):
 
         try:
             role_id = await get_role_by_id(self, identifier)
-        except RoleError:
+        except DiscordRoleError:
             await ctx.send('No role found.')
         else:
             embed = discord.Embed(color=self.viking.color)
 
             row = dict(
-                await GuildRoles
-                    .query.execution_options(return_model=False)
-                    .where(GuildRoles.id == role_id)
-                    .gino.first()
+                await Role
+                .query.execution_options(return_model=False)
+                .where(Role.id == role_id)
+                .gino.first()
             )
 
-            role = Role(row)
+            role = DiscordRole(row)
 
             embed.add_field(
                 inline=False,
@@ -210,5 +222,6 @@ class Roles(commands.Cog):
             await ctx.send(embed=embed)
 
 
-def setup(viking):
-    viking.add_cog(Roles(viking))
+async def setup(viking):
+    roles = Roles(viking)
+    await viking.add_cog(roles)

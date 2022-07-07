@@ -1,6 +1,6 @@
 import discord
 import logging
-from database.model import database, ActiveMembers
+
 from discord.ext import commands
 from utilities.format import format_list
 
@@ -25,14 +25,17 @@ class Discord(commands.Cog):
         """
 
         rows = (
-            await ActiveMembers
+            await self.viking.guild.member
             .select('display_name')
-            .where(ActiveMembers.role_id == self.administrator)
+            .where(self.viking.guild.member.role_id == self.administrator)
             .gino
             .all()
         )
 
-        names = [dict(row).get('display_name') for row in rows]
+        names = [
+            dict(row).get('display_name')
+            for row in rows
+        ]
 
         name = format_list(
             names,
@@ -64,7 +67,15 @@ class Discord(commands.Cog):
         the guild.
         """
 
-        count = await database.func.count(ActiveMembers.discord_id).gino.scalar()
+        count = (
+            await
+            self.viking.guild.engine
+            .func
+            .count(self.viking.guild.member.discord_id)
+            .gino
+            .scalar()
+        )
+
         await ctx.send(f"There are {count} members in this server")
 
     @commands.command(aliases=['mods'])
@@ -76,9 +87,9 @@ class Discord(commands.Cog):
         """
 
         rows = (
-            await ActiveMembers
+            await self.viking.guild.member
             .select('display_name')
-            .where(ActiveMembers.role_id == self.moderator)
+            .where(self.viking.guild.member.role_id == self.moderator)
             .gino
             .all()
         )
@@ -104,7 +115,15 @@ class Discord(commands.Cog):
         with nicknames in the guild.
         """
 
-        count = await database.func.count(ActiveMembers.nickname).gino.scalar()
+        count = (
+            await
+            self.viking.guild.engine
+            .func
+            .count(self.viking.guild.member.nickname)
+            .gino
+            .scalar()
+        )
+
         await ctx.send(f"There are {count} members with nicknames")
 
     @commands.command()
@@ -129,5 +148,6 @@ class Discord(commands.Cog):
         await ctx.send(f"Ping: {self.viking.latency * 1000:.0f} ms")
 
 
-def setup(viking):
-    viking.add_cog(Discord(viking))
+async def setup(viking):
+    discord = Discord(viking)
+    await viking.add_cog(discord)

@@ -1,232 +1,177 @@
 import asyncio
 import discord
-from database.model import (
-    database,
-    ActiveMembers,
-    BannedMembers,
-    RemovedMembers
-)
+
+from model.member import DiscordMember, DiscordMemberError
+from sqlalchemy import func
 
 
-class MemberError(Exception):
-    """
-    A MemberError is raised when a member is not found in the database
-    from user input. This can include by an ID, account name, nickname
-    or discriminator.
-    """
+class MemberInterface:
+    def __init__(self, context, identifier):
+        self.context = context
+        self.identifier = identifier
+        self.viking = context.bot
 
-    pass
+    async def get(self):
+        discord_id = None
 
+        try:
+            discord_id = await self.from_id()
+        except DiscordMemberError:
+            message = 'No member found.'
+            await self.context.send(message)
+        except asyncio.TimeoutError:
+            message = 'You have run out of time. Please try again.'
+            await self.context.send(message)
+        finally:
+            return discord_id
 
-class Member:
-    def __init__(self, data):
-        self.id = data.get('discord_id')
-        self.name = data.get('name')
-        self.discriminator = data.get('discriminator')
-        self.display_name = data.get('display_name')
-        self.nickname = data.get('nickname')
-        self.role_id = data.get('role_id')
-        self.bot = data.get('bot')
-        self.previous_name = data.get('previous_name')
-        self.previous_discriminator = data.get('previous_discriminator')
-        self.previous_nickname = data.get('previous_nickname')
-        self.created_at = data.get('created_at')
-        self.joined_at = data.get('joined_at')
-        self.updated_at = data.get('updated_at')
-        self.removed_at = data.get('removed_at')
-        self.deleted_at = data.get('deleted_at')
+    async def from_id(self):
+        """
+        A function to get a member by ID from the database.
+        """
 
-    @property
-    def created(self):
-        return self.created_at.strftime('%B %d, %Y')
-
-    @property
-    def joined(self):
-        return self.joined_at.strftime('%B %d, %Y')
-
-    @property
-    def updated(self):
-        return self.updated_at.strftime('%B %d, %Y')
-
-    @property
-    def removed(self):
-        return self.removed_at.strftime('%B %d, %Y')
-
-    @property
-    def deleted(self):
-        return self.deleted_at.strftime('%B %d, %Y')
-
-
-async def get_member_by_id(self, ctx, identifier, table='members'):
-    """
-    A function to get a member by ID from the database.
-    """
-
-    try:
-        discord_id = int(identifier)
-    except ValueError:
-        name = identifier.lower()
-        return await get_member_by_name(self, ctx, name, table)
-    else:
-        if table == 'members':
-            table = ActiveMembers
-
-        if table == 'banned_members':
-            table = BannedMembers
-
-        if table == 'removed_members':
-            table = RemovedMembers
-
-        row = (
-            await table
-            .select('discord_id')
-            .where(table.discord_id == discord_id)
-            .gino
-            .scalar()
-        )
-
-        if row is None:
-            raise MemberError
-
-        return row
-
-
-async def get_member_by_discriminator(self, ctx, member_name, member_discriminators, table):
-    """
-    A function to get a member by discriminator to discern between
-    members with identical account names or nicknames.
-    """
-
-    def check(message):
-        if (message.author == ctx.author and
-                message.channel == ctx.channel):
-
-            if message.content in member_discriminators:
-                return True
-
-            raise MemberError
-
-    try:
-        message = await self.viking.wait_for(
-            'message',
-            check=check,
-            timeout=15
-        )
-    except asyncio.TimeoutError:
-        raise
-    else:
-        return (
-            await ActiveMembers
-            .select('discord_id')
-            .where(
-                (database.func.levenshtein(
-                    database.func.lower(ActiveMembers.display_name),
-                    member_name
-                ) <= 3) &
-                (ActiveMembers.discriminator == message.content) |
-
-                (database.func.levenshtein(
-                    database.func.lower(ActiveMembers.name),
-                    member_name
-                ) <= 3) &
-                (ActiveMembers.discriminator == message.content) |
-
-                (database.func.levenshtein(
-                    database.func.lower(ActiveMembers.nickname),
-                    member_name
-                ) <= 3) &
-                (ActiveMembers.discriminator == message.content)
+        try:
+            discord_id = int(self.identifier)
+        except ValueError:
+            name = self.identifier.lower()
+            return await self.from_name(name)
+        else:
+            row = (
+                await self.viking.guild.member
+                .select('discord_id')
+                .where(self.viking.guild.member.discord_id == discord_id)
+                .gino
+                .scalar()
             )
+
+            if row is None:
+                raise DiscordMemberError
+
+            return row
+
+    async def from_name(self, name):
+        """
+        A function to get a member by account name or nickname from the
+        database.
+        """
+
+        model = self.viking.guild.member
+
+        condition = (
+            (func.levenshtein(func.lower(model.display_name), name) <= 3) |
+            (func.levenshtein(func.lower(model.name), name) <= 3) |
+            (func.levenshtein(func.lower(model.nickname), name) <= 3)
+        )
+
+        rows = (
+            await model
+            .select(
+                'discord_id',
+                'name',
+                'discriminator',
+                'nickname'
+            )
+            .where(condition)
+            .limit(5)
             .gino
-            .scalar()
+            .all()
         )
 
+        length = len(rows)
 
-async def show_identical_members(self, ctx, rows):
-    """
-    A function that will output each member with an identical account
-    name or nickname.
-    """
+        match length:
+            case 0:
+                raise DiscordMemberError
 
-    embed = discord.Embed(
-        color=discord.Colour.purple(),
-        title=f"There are {len(rows)} members "
-              "with an identical account name or nickname."
-    )
+            case 1:
+                for row in rows:
+                    return dict(row).get('discord_id')
 
-    for row in rows:
-        row = dict(row)
-        member = Member(row)
+            case _:
+                await self.display_identical(self.context, rows)
 
-        embed.add_field(name='Account Name', value=member.name)
-        embed.add_field(name='Discriminator', value=member.discriminator)
-        embed.add_field(name='Nickname', value=member.nickname)
+                discriminators = [
+                    dict(row).get('discriminator')
+                    for row in rows
+                ]
 
-    embed.add_field(
-        name='\u200B',
-        value='Please enter the member\'s discriminator.'
-    )
-    await ctx.send(embed=embed)
+                return await self.from_discriminator(
+                    name,
+                    discriminators
+                )
 
+    async def from_discriminator(self, name, discriminator):
+        """
+        A function to get a member by discriminator to discern between
+        members with identical account names or nicknames.
+        """
 
-async def get_member_by_name(self, ctx, member_name, table):
-    """
-    A function to get a member by account name or nickname from the
-    database.
-    """
+        def check(message):
+            condition = (
+                message.author == self.context.author and
+                message.channel == self.context.channel
+            )
 
-    rows = (
-        await ActiveMembers
-        .select(
-            'discord_id',
-            'name',
-            'discriminator',
-            'nickname'
-        )
-        .where(
-            (database.func.levenshtein(
-                database.func.lower(ActiveMembers.display_name),
-                member_name
-            ) <= 3) |
+            if (condition):
+                if message.content in discriminator:
+                    return True
 
-            (database.func.levenshtein(
-                database.func.lower(ActiveMembers.name),
-                member_name
-            ) <= 3) |
+                raise DiscordMemberError
 
-            (database.func.levenshtein(
-                database.func.lower(ActiveMembers.nickname),
-                member_name
-            ) <= 3)
-        )
-        .limit(5)
-        .gino
-        .all()
-    )
+        try:
+            message = await self.viking.wait_for(
+                'message',
+                check=check,
+                timeout=15
+            )
+        except asyncio.TimeoutError:
+            raise
+        else:
+            model = self.viking.guild.member
 
-    if len(rows) == 0:
-        raise MemberError
+            condition = (
+                (func.levenshtein(func.lower(model.display_name), name) <= 3) &
+                (model.discriminator == message.content) |
 
-    if len(rows) == 1:
-        for row in rows:
-            row = dict(row)
-            return row.get('discord_id')
+                (func.levenshtein(func.lower(model.name), name) <= 3) &
+                (model.discriminator == message.content) |
 
-    if len(rows) > 1:
-        await show_identical_members(self, ctx, rows)
+                (func.levenshtein(func.lower(model.nickname), name) <= 3) &
+                (model.discriminator == message.content)
+            )
 
-        member_discriminators = []
+            return (
+                await model
+                .select('discord_id')
+                .where(condition)
+                .gino
+                .scalar()
+            )
+
+    async def display_identical(self, ctx, rows):
+        """
+        A function that will output each member with an identical account
+        name or nickname.
+        """
+
+        length = len(rows)
+
+        color = discord.Colour.purple()
+        title = f"There are {length} members with identical information."
+
+        embed = discord.Embed(color=color, title=title)
 
         for row in rows:
             row = dict(row)
-            member_discriminators.append(
-                row.get('discriminator')
-            )
+            member = DiscordMember(row)
 
-        return await get_member_by_discriminator(
-            self,
-            ctx,
-            member_name,
-            member_discriminators,
-            table
+            embed.add_field(name='Account Name', value=member.name)
+            embed.add_field(name='Discriminator', value=member.discriminator)
+            embed.add_field(name='Nickname', value=member.nickname)
+
+        embed.add_field(
+            name='\u200B',
+            value='Please enter the member\'s discriminator.'
         )
+
+        await ctx.send(embed=embed)

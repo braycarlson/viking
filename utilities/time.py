@@ -7,6 +7,7 @@ def run_at(hour=0, minute=0, second=0):
     """
 
     today = datetime.today()
+
     midnight = today.replace(
         day=today.day,
         hour=hour,
@@ -25,6 +26,7 @@ def timeout(hours=0, minutes=0, seconds=0):
     """
 
     today = datetime.now()
+
     timeout = today.replace(
         day=today.day,
         hour=today.hour,
@@ -43,6 +45,7 @@ def midnight():
     """
 
     today = datetime.today()
+
     midnight = today.replace(
         day=today.day,
         hour=0,

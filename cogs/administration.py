@@ -1,8 +1,9 @@
+import database.engine
 import logging
 import paramiko
+
 from bot import ROOT
 from configparser import RawConfigParser
-from database.model import database
 from discord.ext import commands
 
 
@@ -19,7 +20,6 @@ class Administration(commands.Cog):
         self.root = viking.root
         self.crontab_path = self.root.joinpath('logs/crontab.txt')
         self.log_path = self.root.joinpath('logs/viking.log')
-        self.session = viking.session
 
     @commands.command(hidden=True)
     @commands.is_owner()
@@ -34,9 +34,17 @@ class Administration(commands.Cog):
         await ctx.message.delete()
 
         log.info('Viking is offline.')
-        await database.pop_bind().close()
+
+        await database.engine.command.pop_bind().close()
+        await database.engine.lol.pop_bind().close()
+
+        guild = database.engine.Guild()
+
+        for engine in guild.generate('engine'):
+            await engine.pop_bind().close()
+
         await self.viking.session.close()
-        await self.viking.logout()
+        await self.viking.close()
 
     @commands.command(hidden=True)
     @commands.is_owner()
@@ -44,7 +52,7 @@ class Administration(commands.Cog):
         """
         *restart
 
-        A command that restarts my Raspberry Pi and subsequently Viking.
+        A command that restarts my Raspberry Pi and Viking.
         """
 
         await ctx.message.delete()
@@ -62,9 +70,17 @@ class Administration(commands.Cog):
         client.close()
 
         log.info('Viking is restarting.')
-        await database.pop_bind().close()
+
+        await database.engine.command.pop_bind().close()
+        await database.engine.lol.pop_bind().close()
+
+        guild = database.engine.Guild()
+
+        for engine in guild.generate('engine'):
+            await engine.pop_bind().close()
+
         await self.viking.session.close()
-        await self.viking.logout()
+        await self.viking.close()
 
     @commands.command(hidden=True)
     @commands.is_owner()
@@ -76,9 +92,11 @@ class Administration(commands.Cog):
         """
 
         await ctx.message.delete()
+
         self.crontab_path.open('w', encoding='utf-8').close()
         self.log_path.open('w', encoding='utf-8').close()
 
 
-def setup(viking):
-    viking.add_cog(Administration(viking))
+async def setup(viking):
+    administration = Administration(viking)
+    await viking.add_cog(administration)

@@ -1,7 +1,7 @@
 import discord
 import logging
+
 from discord.ext import commands
-from utilities.format import alphabet
 from utilities.lol import (
     ASSET,
     Game,
@@ -10,18 +10,23 @@ from utilities.lol import (
     get_active_game,
     get_summoner_account,
     get_summoner_leagues,
+    get_champion,
+    get_champion_id,
+    get_champion_image,
     get_champion_name,
+    get_champion_skill_order,
     get_champion_statistics,
     get_champion_version,
+    get_item_name,
     get_spell_statistics,
     get_spell_version,
     get_mastery,
     get_placement,
     search_for_champion,
     search_for_spell,
-    UGG
 )
-from utilities.request import RequestError
+from utilities.format import format_list
+from utilities.request import fetch, RequestError
 
 
 log = logging.getLogger(__name__)
@@ -32,36 +37,95 @@ class LeagueOfLegends(commands.Cog):
         self.viking = viking
         self.lol_api_key = viking.lol_api_key
         self.params = {'api_key': self.lol_api_key}
-        self.session = viking.session
 
     @commands.command()
     async def build(self, ctx, *, champion_name: str):
         """
         *build <name>
-
-        A command that links you to a champion's most frequent and
-        highest winning build path.
         """
 
-        name = alphabet(champion_name)
-        result = await search_for_champion(name)
-        champion = alphabet(result)
+        champion = await get_champion(champion_name)
+        version = await get_champion_version()
+        image = await get_champion_image(champion)
+        champion_id = await get_champion_id(champion)
 
-        await ctx.send(f"{UGG}/{champion}/build?rank=diamond_plus")
+        url = f"{self.viking.lol_api_url}/opgg/ranked/sr/items/{champion_id}"
+        response = await fetch(self.viking.session, url)
+
+        itemset = response.get('itemSets')
+
+        build = {}
+
+        for item in itemset:
+            blocks = item.get('blocks')
+
+            for block in blocks:
+                title = block.get('type')
+
+                if title != 'Trinkets' and title != 'Elixirs':
+                    items = []
+
+                    for item in block.get('items'):
+                        item_id = item.get('id')
+                        item_name = await get_item_name(item_id)
+                        items.append(item_name)
+
+                    build[title] = items
+
+        embed = discord.Embed(
+            colour=self.viking.color,
+            title=f"Recommended Items for {champion}"
+        )
+
+        embed.set_thumbnail(
+            url=f"{ASSET}/cdn/{version}/img/champion/{image}"
+        )
+
+        if not build['Starting']:
+            del build['Starting']
+
+        for key in build.keys():
+            items = format_list(
+                build.get(key),
+                symbol='bullet',
+                sort=False
+            )
+
+            embed.add_field(
+                inline=False,
+                name=key,
+                value=items
+            )
+
+        await ctx.send(embed=embed)
 
     @commands.command()
-    async def counters(self, ctx, *, champion_name: str):
+    async def skill(self, ctx, *, champion_name: str):
         """
-        *counters <name>
-
-        A command that links you to a champion's counters
+        *skill <name>
         """
 
-        name = alphabet(champion_name)
-        result = await search_for_champion(name)
-        champion = alphabet(result)
+        champion = await get_champion(champion_name)
+        version = await get_champion_version()
+        image = await get_champion_image(champion)
+        skills = await get_champion_skill_order(champion)
 
-        await ctx.send(f"{UGG}/{champion}/counters?rank=diamond_plus")
+        embed = discord.Embed(
+            colour=self.viking.color,
+            title=f"Skill Order for {champion}"
+        )
+
+        embed.set_thumbnail(
+            url=f"{ASSET}/cdn/{version}/img/champion/{image}"
+        )
+
+        embed.add_field(
+            inline=False,
+            name='Skill Order',
+            value=''.join(skills)
+        )
+
+        await ctx.send(embed=embed)
 
     @commands.command()
     async def champion(self, ctx, *, champion_name: str):
@@ -74,10 +138,9 @@ class LeagueOfLegends(commands.Cog):
         async with ctx.typing():
             name = await search_for_champion(champion_name)
             champion = await get_champion_statistics(name)
-            version = await get_champion_version(self.session)
+            version = await get_champion_version()
 
             embed = discord.Embed(
-                inline=False,
                 colour=self.viking.color,
                 title=champion.name
             )
@@ -145,20 +208,6 @@ class LeagueOfLegends(commands.Cog):
 
         await ctx.send(embed=embed)
 
-    @commands.command()
-    async def duo(self, ctx, *, champion_name: str):
-        """
-        *duo <name>
-
-        A command that links you to a champion's most successful duo.
-        """
-
-        name = alphabet(champion_name)
-        result = await search_for_champion(name)
-        champion = alphabet(result)
-
-        await ctx.send(f"{UGG}/{champion}/duos?rank=diamond_plus")
-
     @commands.command(aliases=['live'])
     @commands.cooldown(rate=1, per=10.0, type=commands.BucketType.default)
     async def game(self, ctx, *, summoner_name: str):
@@ -171,7 +220,7 @@ class LeagueOfLegends(commands.Cog):
 
         try:
             get_game = await get_active_game(
-                self.session,
+                self.viking.session,
                 self.params,
                 summoner_name
             )
@@ -197,7 +246,7 @@ class LeagueOfLegends(commands.Cog):
                 for participant in game.participants:
                     participant = Participants(participant)
                     leagues = await get_summoner_leagues(
-                        self.session,
+                        self.viking.session,
                         self.params,
                         participant.id
                     )
@@ -223,66 +272,6 @@ class LeagueOfLegends(commands.Cog):
             await ctx.send(embed=red)
 
     @commands.command()
-    async def matchups(self, ctx, *, champion_name: str):
-        """
-        *matchups <name>
-
-        A command that links you to a champion's most successful
-        matchups in descending order.
-        """
-
-        name = alphabet(champion_name)
-        result = await search_for_champion(name)
-        champion = alphabet(result)
-
-        await ctx.send(f"{UGG}/{champion}/matchups?rank=diamond_plus")
-
-    @commands.command()
-    async def path(self, ctx, *, champion_name: str):
-        """
-        *path <name>
-
-        A command that links you to a champion's most successful
-        build path in descending order.
-        """
-
-        name = alphabet(champion_name)
-        result = await search_for_champion(name)
-        champion = alphabet(result)
-
-        await ctx.send(f"{UGG}/{champion}/item-paths?rank=diamond_plus")
-
-    @commands.command()
-    async def probuild(self, ctx, *, champion_name: str):
-        """
-        *probuild <name>
-
-        A command that links you to a professional player's game,
-        and show you how they played the champion.
-        """
-
-        name = alphabet(champion_name)
-        result = await search_for_champion(name)
-        champion = alphabet(result)
-
-        await ctx.send(f"{UGG}/{champion}/pro-build?region=kr")
-
-    @commands.command()
-    async def runes(self, ctx, *, champion_name: str):
-        """
-        *runes <name>
-
-        A command that links you to a champion's most successful
-        rune page in descending order.
-        """
-
-        name = alphabet(champion_name)
-        result = await search_for_champion(name)
-        champion = alphabet(result)
-
-        await ctx.send(f"{UGG}/{champion}/rune-sets?rank=diamond_plus")
-
-    @commands.command()
     async def spell(self, ctx, *, spell_name: str):
         """
         *spell <name>
@@ -293,7 +282,7 @@ class LeagueOfLegends(commands.Cog):
         async with ctx.typing():
             name = await search_for_spell(spell_name)
             spell = await get_spell_statistics(name)
-            version = await get_spell_version(self.session)
+            version = await get_spell_version()
 
             embed = discord.Embed(
                 colour=self.viking.color
@@ -343,7 +332,7 @@ class LeagueOfLegends(commands.Cog):
 
         try:
             get_summoner = await get_summoner_account(
-                self.session,
+                self.viking.session,
                 self.params,
                 summoner_name
             )
@@ -353,13 +342,13 @@ class LeagueOfLegends(commands.Cog):
             async with ctx.typing():
                 summoner = Summoner(get_summoner)
                 leagues = await get_summoner_leagues(
-                    self.session,
+                    self.viking.session,
                     self.params,
                     summoner.id
                 )
                 placement = await get_placement(leagues)
                 champions = await get_mastery(
-                    self.session,
+                    self.viking.session,
                     self.params,
                     summoner.id
                 )
@@ -384,5 +373,6 @@ class LeagueOfLegends(commands.Cog):
             await ctx.send(embed=embed)
 
 
-def setup(viking):
-    viking.add_cog(LeagueOfLegends(viking))
+async def setup(viking):
+    lol = LeagueOfLegends(viking)
+    await viking.add_cog(lol)

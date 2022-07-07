@@ -1,6 +1,7 @@
 import asyncio
 import discord
 import time
+
 from discord.ext import commands
 from json import JSONDecodeError
 from math import floor
@@ -12,7 +13,6 @@ from utilities.request import fetch
 class Basic(commands.Cog):
     def __init__(self, viking):
         self.viking = viking
-        self.session = viking.session
         self.start_time = viking.start_time
 
     @commands.command()
@@ -28,7 +28,8 @@ class Basic(commands.Cog):
             'Tails!'
         )
 
-        await ctx.send(choice(choices))
+        selection = choice(choices)
+        await ctx.send(selection)
 
     @commands.command()
     async def count(self, ctx, *, message):
@@ -38,8 +39,10 @@ class Basic(commands.Cog):
         A command that counts the amount of words in a message.
         """
 
-        words = len(message.split())
-        await ctx.send(f"There are {words} words in this message.")
+        message = message.split()
+        length = len(message)
+
+        await ctx.send(f"There are {length} word(s) in this message.")
 
     @commands.command()
     async def dice(self, ctx):
@@ -66,26 +69,22 @@ class Basic(commands.Cog):
             length = len(members)
 
             if length > 1:
-                restricted_channel = [
-                    716005110312075336,  # Programming
-                    589330980339187733,  # Two's Company
-                    589331073578827776,  # Three's A Crowd
-                    196539941826592768   # Valhalla
-                ]
+                amount = int(
+                    floor(length / 2)
+                )
 
-                amount = int(floor(length / 2))
                 selected = sample(members, amount)
 
-                channel_list = []
+                channels = []
 
                 for channel in ctx.guild.voice_channels:
-                    if not channel.members and channel.id not in restricted_channel:
-                        channel_list.append(channel)
+                    if not channel.members:
+                        channels.append(channel)
 
-                new_channel = choice(channel_list)
+                selection = choice(channels)
 
                 for member in selected:
-                    await member.move_to(new_channel)
+                    await member.move_to(selection)
 
     @commands.command()
     async def eightball(self, ctx, *, question):
@@ -108,7 +107,8 @@ class Basic(commands.Cog):
             'It is unlikely.'
         )
 
-        await ctx.send(choice(choices))
+        selection = choice(choices)
+        await ctx.send(selection)
 
     @commands.command()
     async def hello(self, ctx):
@@ -127,7 +127,8 @@ class Basic(commands.Cog):
             'Hola!'
         )
 
-        await ctx.send(choice(choices))
+        selection = choice(choices)
+        await ctx.send(selection)
 
     @commands.command()
     async def mock(self, ctx, *, message):
@@ -162,7 +163,11 @@ class Basic(commands.Cog):
         # so reinvoke the command, until we recieve a proper response.
 
         try:
-            response = await fetch(self.session, url, params=params)
+            response = await fetch(
+                self.viking.session,
+                url,
+                params=params
+            )
         except JSONDecodeError:
             await asyncio.sleep(1)
             await ctx.reinvoke()
@@ -185,6 +190,8 @@ class Basic(commands.Cog):
         A command that repeats the message a specified amount of times.
         """
 
+        amount = int(amount)
+
         if amount <= 5:
             for i in range(amount):
                 await ctx.send(message)
@@ -200,7 +207,12 @@ class Basic(commands.Cog):
         """
 
         message = message.split()
-        await ctx.send(' '.join(reversed(message)))
+
+        reverse = ' '.join(
+            reversed(message)
+        )
+
+        await ctx.send(reverse)
 
     @commands.command()
     async def tts(self, ctx, *, message):
@@ -210,6 +222,7 @@ class Basic(commands.Cog):
         A command that uses to text-to-speech to repeat a message.
         """
 
+        await ctx.message.delete()
         await ctx.send(message, tts=True)
 
     @commands.command()
@@ -239,5 +252,6 @@ class Basic(commands.Cog):
         await ctx.send(f"{year} {month} {week} {day} {hour} {minute} {second}")
 
 
-def setup(viking):
-    viking.add_cog(Basic(viking))
+async def setup(viking):
+    basic = Basic(viking)
+    await viking.add_cog(basic)
