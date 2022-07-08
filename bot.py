@@ -71,6 +71,7 @@ class Viking(commands.Bot):
         self.token = configuration['bot']['token']
 
         # Directories
+        self.images = self.root.joinpath('images')
         self.logs = self.root.joinpath('logs')
         self.sound = self.root.joinpath('sound')
 

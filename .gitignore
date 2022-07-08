@@ -113,4 +113,5 @@ known_hosts
 cogs/random.py
 images/
 logs/
+script/
 sound/

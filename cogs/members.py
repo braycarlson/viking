@@ -125,7 +125,8 @@ class Members(commands.Cog):
             .query
             .execution_options(return_model=False)
             .where(self.viking.guild.member.discord_id == discord_id)
-            .gino.first()
+            .gino
+            .first()
         )
 
         member = DiscordMember(row)

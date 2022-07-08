@@ -14,10 +14,12 @@ from utilities.lol import (
     get_champion_id,
     get_champion_image,
     get_champion_name,
+    get_champion_runes,
     get_champion_skill_order,
     get_champion_statistics,
     get_champion_version,
     get_item_name,
+    get_rune_name,
     get_spell_statistics,
     get_spell_version,
     get_mastery,
@@ -35,6 +37,7 @@ log = logging.getLogger(__name__)
 class LeagueOfLegends(commands.Cog):
     def __init__(self, viking):
         self.viking = viking
+        self.images = viking.images
         self.lol_api_key = viking.lol_api_key
         self.lol_api_url = viking.lol_api_url
         self.params = {'api_key': self.lol_api_key}

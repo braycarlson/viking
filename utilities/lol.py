@@ -164,7 +164,7 @@ async def get_champion_skill_order(champion_name: str):
 
 async def get_rune_name(rune_id: str):
     return (
-        await Item
+        await Rune
         .select('name')
         .where(Rune.id == rune_id)
         .gino
