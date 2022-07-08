@@ -36,6 +36,7 @@ class LeagueOfLegends(commands.Cog):
     def __init__(self, viking):
         self.viking = viking
         self.lol_api_key = viking.lol_api_key
+        self.lol_api_url = viking.lol_api_url
         self.params = {'api_key': self.lol_api_key}
 
     @commands.command()
@@ -49,7 +50,7 @@ class LeagueOfLegends(commands.Cog):
         image = await get_champion_image(champion)
         champion_id = await get_champion_id(champion)
 
-        url = f"{self.viking.lol_api_url}/opgg/ranked/sr/items/{champion_id}"
+        url = f"{self.lol_api_url}/opgg/ranked/sr/items/{champion_id}"
         response = await fetch(self.viking.session, url)
 
         itemset = response.get('itemSets')

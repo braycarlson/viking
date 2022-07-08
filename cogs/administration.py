@@ -2,24 +2,18 @@ import database.engine
 import logging
 import paramiko
 
-from bot import ROOT
-from configparser import RawConfigParser
+from bot import configuration
 from discord.ext import commands
 
 
 log = logging.getLogger(__name__)
-configuration = RawConfigParser()
-configuration.read(
-    ROOT.joinpath('config.ini')
-)
 
 
 class Administration(commands.Cog):
     def __init__(self, viking):
         self.viking = viking
+        self.logs = viking.logs
         self.root = viking.root
-        self.crontab_path = self.root.joinpath('logs/crontab.txt')
-        self.log_path = self.root.joinpath('logs/viking.log')
 
     @commands.command(hidden=True)
     @commands.is_owner()
@@ -35,13 +29,13 @@ class Administration(commands.Cog):
 
         log.info('Viking is offline.')
 
-        await database.engine.command.pop_bind().close()
-        await database.engine.lol.pop_bind().close()
-
         guild = database.engine.Guild()
 
         for engine in guild.generate('engine'):
             await engine.pop_bind().close()
+
+        await database.engine.command.pop_bind().close()
+        await database.engine.lol.pop_bind().close()
 
         await self.viking.session.close()
         await self.viking.close()
@@ -58,26 +52,28 @@ class Administration(commands.Cog):
         await ctx.message.delete()
 
         client = paramiko.SSHClient()
-        client.load_host_keys(
-            self.root.joinpath('known_hosts')
-        )
+
+        path = self.root.joinpath('known_hosts')
+        client.load_host_keys(path)
+
         client.connect(
             hostname=configuration['paramiko']['hostname'],
             username=configuration['paramiko']['username'],
             password=configuration['paramiko']['password'],
         )
+
         client.exec_command('sudo /sbin/reboot')
         client.close()
 
         log.info('Viking is restarting.')
 
-        await database.engine.command.pop_bind().close()
-        await database.engine.lol.pop_bind().close()
-
         guild = database.engine.Guild()
 
         for engine in guild.generate('engine'):
             await engine.pop_bind().close()
+
+        await database.engine.command.pop_bind().close()
+        await database.engine.lol.pop_bind().close()
 
         await self.viking.session.close()
         await self.viking.close()
@@ -93,8 +89,14 @@ class Administration(commands.Cog):
 
         await ctx.message.delete()
 
-        self.crontab_path.open('w', encoding='utf-8').close()
-        self.log_path.open('w', encoding='utf-8').close()
+        log = self.logs.glob('*.log')
+        txt = self.logs.glob('*.txt')
+
+        for file in log:
+            file.open('w', encoding='utf-8').close()
+
+        for file in txt:
+            file.open('w', encoding='utf-8').close()
 
 
 async def setup(viking):

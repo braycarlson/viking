@@ -1,4 +1,4 @@
-from model.role import DiscordRole, DiscordRoleError
+from model.role import DiscordRoleError
 from sqlalchemy import func
 
 

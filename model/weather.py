@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from utilities.format import format_utc
 
+
 @dataclass
 class Forecast:
     __slots__ = (

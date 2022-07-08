@@ -12,7 +12,7 @@ class Pages:
         self.per_page = per_page
         pages, extra = divmod(len(self.entries), self.per_page)
         if extra:
-            pages += 1
+            pages = pages + 1
         self.maximum_pages = pages
         self.embed = discord.Embed(colour=discord.Colour.purple())
         self.paginating = len(entries) > per_page

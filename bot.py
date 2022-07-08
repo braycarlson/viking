@@ -18,17 +18,16 @@ from database.engine import (
 from datetime import datetime
 from discord.ext import commands
 from pathlib import Path
+from sqlalchemy import func
 from tabulate import tabulate
 from utilities.format import format_list
 
 
-ROOT = Path(__file__).parent
-
+path = Path(__file__).parent.joinpath('config.ini')
 
 configuration = RawConfigParser()
-configuration.read(
-    ROOT.joinpath('config.ini')
-)
+configuration.read(path)
+
 log = logging.getLogger(__name__)
 
 
@@ -65,17 +64,15 @@ class Viking(commands.Bot):
         self.bot_name = configuration['bot']['bot_name']
         self.bot_id = configuration['bot'].getint('bot_id')
         self.color = discord.Colour.purple()
-        self.guild_id = configuration['bot'].getint('guild_id')
         self.initialize_extensions = []
         self.owner_id = configuration['bot'].getint('owner_id')
         self.root = Path(__file__).parent
         self.start_time = time.time()
         self.token = configuration['bot']['token']
 
-        # Role
-        self.administrator = configuration['role'].getint('administrator')
-        self.moderator = configuration['role'].getint('moderator')
-        self.normal = configuration['role'].getint('normal')
+        # Directories
+        self.logs = self.root.joinpath('logs')
+        self.sound = self.root.joinpath('sound')
 
         # Database
         self.identifier = ContextVar(
@@ -85,9 +82,10 @@ class Viking(commands.Bot):
         self.uri = configuration['database']['postgresql']
 
         # API
-        self.lol_api_url = configuration['lol']['api']
         self.lol_api_key = configuration['lol']['key']
+        self.lol_api_url = configuration['lol']['url']
         self.owm_api_key = configuration['owm']['key']
+        self.owm_api_url = configuration['owm']['url']
         self.rpd_api_key = configuration['rpd']['key']
         self.trn_api_key = configuration['trn']['key']
         self.wow_api_id = configuration['wow']['id']
@@ -96,6 +94,7 @@ class Viking(commands.Bot):
     @property
     def guild(self):
         identifier = self.identifier.get()
+
         guild = Guild()
         return guild.get(identifier)
 
@@ -126,9 +125,6 @@ class Viking(commands.Bot):
     async def process_commands(self, message):
         ctx = await self.get_context(message)
 
-        if ctx.command is None:
-            return
-
         await self.update(message.guild.id)
         await self.invoke(ctx)
 
@@ -138,29 +134,29 @@ class Viking(commands.Bot):
         a command.
         """
 
-        if isinstance(error, commands.CommandOnCooldown):
-            minutes, seconds = divmod(error.retry_after, 60)
-            await ctx.send(
-                f"This command is on cooldown. "
-                f"Please wait {seconds:.0f} seconds."
-            )
+        match error:
+            case commands.CommandOnCooldown():
+                minutes, seconds = divmod(error.retry_after, 60)
 
-        elif isinstance(error, commands.CommandNotFound):
-            rows = (
-                await Public
-                .select('name')
-                .where(
-                    command.func.levenshtein(
-                        Public.name,
-                        ctx.invoked_with
-                    ) <= 2
+                await ctx.send(
+                    f"This command is on cooldown. "
+                    f"Please wait {seconds:.0f} seconds."
                 )
-                .limit(5)
-                .gino
-                .all()
-            )
 
-            if len(rows) > 0:
+            case commands.CommandNotFound():
+                rows = (
+                    await Public
+                    .select('name')
+                    .where(func.levenshtein(Public.name, ctx.invoked_with) < 3)
+                    .limit(5)
+                    .gino
+                    .all()
+                )
+
+                if len(rows) == 0:
+                    await ctx.send('Command not found.')
+                    return
+
                 suggestions = [dict(row).get('name') for row in rows]
 
                 suggestion = format_list(
@@ -168,30 +164,37 @@ class Viking(commands.Bot):
                     symbol='asterisk',
                     sort=False
                 )
+
                 embed = discord.Embed(color=self.color)
+
                 embed.add_field(
                     name='Command not found. Did you mean...',
                     value=suggestion
                 )
+
                 await ctx.send(embed=embed)
-            else:
-                await ctx.send('Command not found.')
 
-        elif isinstance(
-            error, (commands.BadArgument,
-                    commands.MissingRequiredArgument,
-                    commands.CheckFailure)
-        ):
-            pass
+            case (
+                commands.CheckFailure(),
+                commands.MissingPermissions(),
+                commands.MissingRole()
+            ):
+                await ctx.send('You do not have permission to use this command.')
 
-        else:
-            traceback.print_tb(error.original.__traceback__)
+            case (
+                commands.BadArgument(),
+                commands.MissingRequiredArgument()
+            ):
+                return
 
-            log.warning(
-                f"{error.original.__class__.__name__} "
-                f"from {ctx.command.qualified_name}: "
-                f"{error.original}"
-            )
+            case _:
+                traceback.print_tb(error.original.__traceback__)
+
+                log.warning(
+                    f"{error.original.__class__.__name__} "
+                    f"from {ctx.command.qualified_name}: "
+                    f"{error.original}"
+                )
 
     async def on_connect(self):
         """
@@ -209,8 +212,10 @@ class Viking(commands.Bot):
 
         condition = (
             message.author.bot or
-            message.content.startswith('*') and message.content.endswith('*') or
-            message.content.startswith('**') and message.content.endswith('**')
+            message.content.startswith('*') and
+            message.content.endswith('*') or
+            message.content.startswith('**') and
+            message.content.endswith('**')
         )
 
         if condition:
@@ -234,7 +239,9 @@ class Viking(commands.Bot):
             ['Date', datetime.now().strftime('%B %d, %Y at %I:%M %p')]
         ]
 
-        print(tabulate(table, tablefmt='psql'))
+        display = tabulate(table, tablefmt='psql')
+        print(display)
+
         log.info(f"{self.bot_name} is ready.")
 
     async def start(self):

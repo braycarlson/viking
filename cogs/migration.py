@@ -11,11 +11,27 @@ from sqlalchemy import func
 class Migration(commands.Cog):
     def __init__(self, viking):
         self.viking = viking
+        self.bot_id = viking.bot_id
         self.root = viking.root
+        self.sound = viking.sound
 
-    async def insert_roles(self, guild):
+    async def insert_member(self, model, guild):
+        for member in guild.members:
+            await model.create(
+                discord_id=member.id,
+                name=member.name,
+                discriminator=member.discriminator,
+                display_name=member.display_name,
+                nickname=member.nick,
+                role_id=member.top_role.id,
+                bot=member.bot,
+                created_at=member.created_at,
+                joined_at=member.joined_at
+            )
+
+    async def insert_role(self, model, guild):
         for role in guild.roles:
-            await self.viking.guild.role.create(
+            await model.create(
                 id=role.id,
                 name=role.name,
                 colour=str(role.colour),
@@ -27,7 +43,19 @@ class Migration(commands.Cog):
                 created_at=role.created_at
             )
 
-    async def insert_public_commands(self):
+    async def insert_sound(self, model):
+        directory = self.sound.joinpath('member')
+        sounds = [path for path in directory.iterdir()]
+        date = datetime.now()
+
+        for sound in sounds:
+            await model.create(
+                name=sound.stem,
+                created_by=self.bot_id,
+                created_at=date
+            )
+
+    async def insert_public(self):
         for viking_commands in self.viking.commands:
             if not viking_commands.hidden:
                 await Public.create(name=viking_commands.name)
@@ -48,7 +76,7 @@ class Migration(commands.Cog):
                             .status()
                         )
 
-    async def insert_hidden_commands(self):
+    async def insert_hidden(self):
         for viking_commands in self.viking.commands:
             if viking_commands.hidden:
                 await Hidden.create(name=viking_commands.name)
@@ -69,35 +97,9 @@ class Migration(commands.Cog):
                             .status()
                         )
 
-    async def insert_members(self, guild):
-        for member in guild.members:
-            await self.viking.guild.member.create(
-                discord_id=member.id,
-                name=member.name,
-                discriminator=member.discriminator,
-                display_name=member.display_name,
-                nickname=member.nick,
-                role_id=member.top_role.id,
-                bot=member.bot,
-                created_at=member.created_at,
-                joined_at=member.joined_at
-            )
-
-    async def insert_member_sounds(self):
-        directory = self.root.joinpath('sound/member')
-        sounds = [path for path in directory.iterdir()]
-        date = datetime.now()
-
-        for sound in sounds:
-            await self.viking.guild.sound.create(
-                name=sound.stem,
-                created_by=283002620023406593,
-                created_at=date
-            )
-
     @commands.command(hidden=True)
     @commands.is_owner()
-    async def update_public_commands(self, ctx):
+    async def update_public(self, ctx):
         query = await Public.select('name').gino.all()
 
         database_commands = set(
@@ -168,9 +170,12 @@ class Migration(commands.Cog):
 
         await ctx.message.delete()
 
+        guild = database.engine.Guild()
+
+        for engine in guild.generate('engine'):
+            await engine.gino.drop_all()
+
         await database.engine.command.gino.drop_all()
-        await database.engine.nac.gino.drop_all()
-        await database.engine.viking.gino.drop_all()
 
     @commands.command(hidden=True)
     @commands.is_owner()
@@ -197,12 +202,12 @@ class Migration(commands.Cog):
 
         await ctx.message.delete()
 
-        await database.engine.command.gino.create_all()
-        await database.engine.nac.gino.create_all()
-        await database.engine.viking.gino.create_all()
+        guild = database.engine.Guild()
 
-        await self.insert_public_commands()
-        await self.insert_hidden_commands()
+        for engine in guild.generate('engine'):
+            await engine.gino.create_all()
+
+        await database.engine.command.gino.create_all()
 
     @commands.command(hidden=True)
     @commands.is_owner()
@@ -210,15 +215,24 @@ class Migration(commands.Cog):
         """
         *run
 
-        A command that executes the necessary queries to create the
-        database.
+        A command that executes the necessary queries to insert
+        information into the database.
         """
 
         await ctx.message.delete()
 
-        await self.insert_roles(ctx.guild)
-        await self.insert_members(ctx.guild)
-        await self.insert_member_sounds()
+        guilds = database.engine.Guild()
+
+        for guild in self.viking.guilds:
+            gid = str(guild.id)
+            model = guilds.get(gid)
+
+            await self.insert_role(model.role, guild)
+            await self.insert_member(model.member, guild)
+            await self.insert_sound(model.sound)
+
+        await self.insert_public()
+        await self.insert_hidden()
 
 
 async def setup(viking):

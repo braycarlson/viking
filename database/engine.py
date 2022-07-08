@@ -4,18 +4,19 @@ from model.guild import (
     VikingDatabase
 )
 
+
 command = Gino()
 lol = Gino()
 nac = Gino()
 viking = Gino()
 
-vd = VikingDatabase()
 nd = NACDatabase()
+vd = VikingDatabase()
 
 
 factory = {
     '186994904365400064': vd,
-    '863292513141522433': nd
+    '863292513141522433': nd,
 }
 
 
@@ -32,4 +33,5 @@ class Guild:
         return [
             getattr(factory[key], attribute)
             for key in factory.keys()
+            if hasattr(factory[key], attribute)
         ]

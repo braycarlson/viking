@@ -5,13 +5,11 @@ from model.weather import Forecast
 from utilities.request import RequestError, fetch
 
 
-BASE = 'http://api.openweathermap.org/data/2.5'
-
-
 class Weather(commands.Cog):
     def __init__(self, viking):
         self.viking = viking
         self.owm_api_key = viking.owm_api_key
+        self.owm_api_url = viking.owm_api_url
 
     @commands.command()
     @commands.cooldown(rate=60, per=60.0, type=commands.BucketType.default)
@@ -26,7 +24,7 @@ class Weather(commands.Cog):
             'appid': self.owm_api_key
         }
 
-        url = f"{BASE}/weather?q={location}&units=metric"
+        url = f"{self.owm_api_url}/weather?q={location}&units=metric"
 
         try:
             response = await fetch(self.viking.session, url, params=params)

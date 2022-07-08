@@ -1,4 +1,5 @@
 import discord
+
 from utilities.format import format_list
 from utilities.pagination import Pages
 

@@ -56,7 +56,8 @@ class Basic(commands.Cog):
         await ctx.send(choices)
 
     @commands.command()
-    @commands.has_any_role('Administrator', 'Moderator', 'OG')
+    @commands.bot_has_permissions(move_members=True)
+    @commands.has_permissions(move_members=True)
     async def divide(self, ctx):
         """
         *divide

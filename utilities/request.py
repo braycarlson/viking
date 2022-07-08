@@ -32,6 +32,7 @@ def error_handler(f):
                                f"a {exception.status} {exception.message}.")
         except aiohttp.ClientConnectorError:
             raise RequestError('The client could not connect to the host.')
+
     return wrapper
 
 

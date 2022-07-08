@@ -2,10 +2,10 @@ import discord
 import logging
 
 from discord.ext import commands
+from model.role import DiscordRole
 from utilities.event import MemberEvent
 from utilities.format import format_list
 from utilities.member import DiscordMember, MemberInterface
-from utilities.role import DiscordRole
 
 
 log = logging.getLogger(__name__)

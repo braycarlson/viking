@@ -50,11 +50,11 @@ class Database(ABC):
         self._sound = sound
 
 
-class VikingDatabase(Database):
-    def __init__(self):
-        self._name = 'viking'
-
-
 class NACDatabase(Database):
     def __init__(self):
         self._name = 'nac'
+
+
+class VikingDatabase(Database):
+    def __init__(self):
+        self._name = 'viking'

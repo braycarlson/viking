@@ -3,12 +3,11 @@ import logging
 
 from database.viking import Role
 from discord.ext import commands
+from model.role import DiscordRole, DiscordRoleError
 from utilities.event import RoleEvent
 from utilities.member import MemberInterface
 from utilities.role import (
     check_for_role,
-    DiscordRole,
-    DiscordRoleError,
     get_role_by_id
 )
 

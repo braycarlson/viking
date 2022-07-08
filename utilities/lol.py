@@ -1,10 +1,10 @@
 from database.lol import (
     Champion,
     Item,
+    OPGGKRARAM,
     Rune,
     Spell,
-    Version,
-    OPGGKRNormal
+    Version
 )
 from model.lol import (
     Game,
@@ -130,9 +130,9 @@ async def get_champion_runes(champion_name: str):
     champion_id = await get_champion_id(champion_name)
 
     return (
-        await OPGGKRNormal
+        await OPGGKRARAM
         .select('runes')
-        .where(OPGGKRNormal.champion_id == champion_id)
+        .where(OPGGKRARAM.champion_id == champion_id)
         .gino
         .scalar()
     )
@@ -142,9 +142,9 @@ async def get_champion_items(champion_name: str):
     champion_id = await get_champion_id(champion_name)
 
     return (
-        await OPGGKRNormal
+        await OPGGKRARAM
         .select('items')
-        .where(OPGGKRNormal.champion_id == champion_id)
+        .where(OPGGKRARAM.champion_id == champion_id)
         .gino
         .scalar()
     )
@@ -154,9 +154,9 @@ async def get_champion_skill_order(champion_name: str):
     champion_id = await get_champion_id(champion_name)
 
     return (
-        await OPGGKRNormal
+        await OPGGKRARAM
         .select('skills')
-        .where(OPGGKRNormal.champion_id == champion_id)
+        .where(OPGGKRARAM.champion_id == champion_id)
         .gino
         .scalar()
     )
