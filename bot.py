@@ -1,4 +1,5 @@
 import aiohttp
+import asyncio
 import discord
 import logging
 import sys
@@ -21,6 +22,7 @@ from pathlib import Path
 from sqlalchemy import func
 from tabulate import tabulate
 from utilities.format import format_list
+from utilities.time import midnight
 
 
 path = Path(__file__).parent.joinpath('config.ini')
@@ -103,7 +105,26 @@ class Viking(commands.Bot):
         identifier = str(identifier)
         self.identifier.set(identifier)
 
+    async def purge(self):
+        """
+        A function that purges all messages from the spam channel at
+        midnight.
+        """
+
+        while not self.is_closed():
+            time = midnight()
+            await asyncio.sleep(time)
+
+            for guild in self.viking.guilds:
+                for channel in guild.text_channels:
+                    if channel.name == 'spam':
+                        await channel.purge()
+
     async def setup_hook(self):
+        self.loop.create_task(
+            self.purge()
+        )
+
         await command.set_bind(self.uri + 'command')
         await lol.set_bind(self.uri + 'lol')
         await nac.set_bind(self.uri + 'nac')
@@ -189,13 +210,15 @@ class Viking(commands.Bot):
                 return
 
             case _:
-                traceback.print_tb(error.original.__traceback__)
+                traceback.print_tb(error.__traceback__)
 
                 log.warning(
-                    f"{error.original.__class__.__name__} "
-                    f"from {ctx.command.qualified_name}: "
-                    f"{error.original}"
+                    f"{error.__class__.__name__} "
+                    f"from {ctx.command.qualified_name}."
                 )
+
+                if hasattr(error, 'original'):
+                    log.warning(error.original)
 
     async def on_connect(self):
         """

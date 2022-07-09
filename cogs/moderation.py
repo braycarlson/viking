@@ -6,7 +6,7 @@ from database.command import Hidden
 from discord.ext import commands
 from utilities.format import format_list
 from utilities.member import MemberInterface
-from utilities.time import midnight, timeout
+from utilities.time import timeout
 
 
 log = logging.getLogger(__name__)
@@ -15,26 +15,6 @@ log = logging.getLogger(__name__)
 class Moderation(commands.Cog):
     def __init__(self, viking):
         self.viking = viking
-
-        # asyncio.create_task(
-        #     self.purge_spam()
-        # )
-
-    async def purge_spam(self):
-        """
-        A function that purges all messages from the spam channel at
-        midnight.
-        """
-
-        await self.viking.wait_until_ready()
-
-        while not self.viking.is_closed():
-            time = midnight()
-            await asyncio.sleep(time)
-
-            for guild in self.viking.guilds:
-                channel = guild.get_channel(579830092352716820)
-                await channel.purge()
 
     async def chat_restrict(self):
         """
@@ -51,8 +31,8 @@ class Moderation(commands.Cog):
         return overwrite
 
     @commands.command(hidden=True)
-    @commands.bot_has_permissions(move_members=True)
-    @commands.has_permissions(move_members=True)
+    @commands.bot_has_guild_permissions(move_members=True)
+    @commands.has_guild_permissions(move_members=True)
     async def afk(self, ctx, identifier):
         """
         *afk <identifier>
@@ -77,8 +57,8 @@ class Moderation(commands.Cog):
             log.info(f"{ctx.author} moved {member} to Valhalla.")
 
     @commands.command(hidden=True)
-    @commands.bot_has_permissions(ban_members=True)
-    @commands.has_permissions(ban_members=True)
+    @commands.bot_has_guild_permissions(ban_members=True)
+    @commands.has_guild_permissions(ban_members=True)
     async def ban(self, ctx, *, identifier):
         """
         *ban <identifier>
@@ -102,8 +82,8 @@ class Moderation(commands.Cog):
             log.info(f"{ctx.author} banned {member}.")
 
     @commands.command(hidden=True)
-    @commands.bot_has_permissions(manage_messages=True)
-    @commands.has_permissions(manage_messages=True)
+    @commands.bot_has_guild_permissions(manage_messages=True)
+    @commands.has_guild_permissions(manage_messages=True)
     async def clear(self, ctx, limit: int):
         """
         *clear <limit>
@@ -116,8 +96,8 @@ class Moderation(commands.Cog):
         await ctx.channel.purge(limit=limit)
 
     @commands.command(hidden=True)
-    @commands.bot_has_permissions(mute_members=True)
-    @commands.has_permissions(mute_members=True)
+    @commands.bot_has_guild_permissions(mute_members=True)
+    @commands.has_guild_permissions(mute_members=True)
     async def deafen(self, ctx, identifier):
         """
         *deafen <identifier>
@@ -141,8 +121,8 @@ class Moderation(commands.Cog):
             log.info(f"{ctx.author} deafened {member}.")
 
     @commands.command(hidden=True)
-    @commands.bot_has_permissions(move_members=True)
-    @commands.has_permissions(move_members=True)
+    @commands.bot_has_guild_permissions(move_members=True)
+    @commands.has_guild_permissions(move_members=True)
     async def disconnect(self, ctx, identifier):
         """
         *disconnect <identifier>
@@ -189,8 +169,8 @@ class Moderation(commands.Cog):
         await ctx.send(embed=embed)
 
     @commands.command(hidden=True)
-    @commands.bot_has_permissions(kick_members=True)
-    @commands.has_permissions(kick_members=True)
+    @commands.bot_has_guild_permissions(kick_members=True)
+    @commands.has_guild_permissions(kick_members=True)
     async def kick(self, ctx, identifier):
         """
         *kick <identifier>
@@ -231,8 +211,8 @@ class Moderation(commands.Cog):
             await ctx.send(f"`{extension}` was successfully loaded.")
 
     @commands.command(hidden=True)
-    @commands.bot_has_permissions(mute_members=True)
-    @commands.has_permissions(mute_members=True)
+    @commands.bot_has_guild_permissions(mute_members=True)
+    @commands.has_guild_permissions(mute_members=True)
     async def mute(self, ctx, identifier):
         """
         *mute <identifier>
@@ -256,8 +236,8 @@ class Moderation(commands.Cog):
             log.info(f"{ctx.author} muted {member}.")
 
     @commands.command(hidden=True)
-    @commands.bot_has_permissions(manage_channels=True)
-    @commands.has_permissions(manage_channels=True)
+    @commands.bot_has_guild_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_channels=True)
     async def purge(self, ctx):
         """
         *purge
@@ -286,8 +266,8 @@ class Moderation(commands.Cog):
             await ctx.send(f"`{extension}` was successfully reloaded.")
 
     @commands.command(hidden=True)
-    @commands.bot_has_permissions(mute_members=True)
-    @commands.has_permissions(mute_members=True)
+    @commands.bot_has_guild_permissions(mute_members=True)
+    @commands.has_guild_permissions(mute_members=True)
     async def restrict(self, ctx, *, identifier):
         """
         *restrict <identifier>
@@ -313,8 +293,8 @@ class Moderation(commands.Cog):
             log.info(f"{ctx.author} chat-restricted {member}.")
 
     @commands.command(hidden=True)
-    @commands.bot_has_permissions(mute_members=True)
-    @commands.has_permissions(mute_members=True)
+    @commands.bot_has_guild_permissions(mute_members=True)
+    @commands.has_guild_permissions(mute_members=True)
     async def softdeafen(self, ctx, seconds: int, *, identifier):
         """
         *softdeafen <seconds> <identifier>
@@ -348,8 +328,8 @@ class Moderation(commands.Cog):
                 break
 
     @commands.command(hidden=True)
-    @commands.bot_has_permissions(mute_members=True)
-    @commands.has_permissions(mute_members=True)
+    @commands.bot_has_guild_permissions(mute_members=True)
+    @commands.has_guild_permissions(mute_members=True)
     async def softmute(self, ctx, seconds: int, *, identifier):
         """
         *softmute <seconds> <identifier>
@@ -383,8 +363,8 @@ class Moderation(commands.Cog):
                 break
 
     @commands.command(hidden=True)
-    @commands.bot_has_permissions(mute_members=True)
-    @commands.has_permissions(mute_members=True)
+    @commands.bot_has_guild_permissions(mute_members=True)
+    @commands.has_guild_permissions(mute_members=True)
     async def softrestrict(self, ctx, seconds: int, *, identifier):
         """
         *softrestrict <seconds> <identifier>
@@ -425,8 +405,8 @@ class Moderation(commands.Cog):
                 break
 
     @commands.command(hidden=True)
-    @commands.bot_has_permissions(ban_members=True)
-    @commands.has_permissions(ban_members=True)
+    @commands.bot_has_guild_permissions(ban_members=True)
+    @commands.has_guild_permissions(ban_members=True)
     async def unban(self, ctx, *, identifier):
         """
         *unban <identifier>
@@ -450,8 +430,8 @@ class Moderation(commands.Cog):
             log.info(f"{ctx.author} unbanned {member}.")
 
     @commands.command(hidden=True)
-    @commands.bot_has_permissions(mute_members=True)
-    @commands.has_permissions(mute_members=True)
+    @commands.bot_has_guild_permissions(mute_members=True)
+    @commands.has_guild_permissions(mute_members=True)
     async def undeafen(self, ctx, identifier):
         """
         *undeafen <identifier>
@@ -492,8 +472,8 @@ class Moderation(commands.Cog):
             await ctx.send(f"`{extension}` was successfully unloaded.")
 
     @commands.command(hidden=True)
-    @commands.bot_has_permissions(mute_members=True)
-    @commands.has_permissions(mute_members=True)
+    @commands.bot_has_guild_permissions(mute_members=True)
+    @commands.has_guild_permissions(mute_members=True)
     async def unmute(self, ctx, identifier):
         """
         *unmute <identifier>
@@ -517,8 +497,8 @@ class Moderation(commands.Cog):
             log.info(f"{ctx.author} unmuted {member}.")
 
     @commands.command(hidden=True)
-    @commands.bot_has_permissions(mute_members=True)
-    @commands.has_permissions(mute_members=True)
+    @commands.bot_has_guild_permissions(mute_members=True)
+    @commands.has_guild_permissions(mute_members=True)
     async def unrestrict(self, ctx, *, identifier):
         """
         *unrestrict <identifier>

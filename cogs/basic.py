@@ -56,8 +56,8 @@ class Basic(commands.Cog):
         await ctx.send(choices)
 
     @commands.command()
-    @commands.bot_has_permissions(move_members=True)
-    @commands.has_permissions(move_members=True)
+    @commands.bot_has_guild_permissions(move_members=True)
+    @commands.has_guild_permissions(move_members=True)
     async def divide(self, ctx):
         """
         *divide
@@ -69,23 +69,36 @@ class Basic(commands.Cog):
             members = ctx.author.voice.channel.members
             length = len(members)
 
-            if length > 1:
-                amount = int(
-                    floor(length / 2)
+            if length == 1:
+                await ctx.send('There must be another member present.')
+                return
+
+            amount = int(
+                floor(length / 2)
+            )
+
+            selected = sample(members, amount)
+
+            channels = []
+
+            afk = ctx.guild.afk_channel
+
+            for channel in ctx.guild.voice_channels:
+                if afk == channel:
+                    continue
+
+                condition = (
+                    channel.user_limit == 0 and
+                    not channel.members
                 )
 
-                selected = sample(members, amount)
+                if condition:
+                    channels.append(channel)
 
-                channels = []
+            selection = choice(channels)
 
-                for channel in ctx.guild.voice_channels:
-                    if not channel.members:
-                        channels.append(channel)
-
-                selection = choice(channels)
-
-                for member in selected:
-                    await member.move_to(selection)
+            for member in selected:
+                await member.move_to(selection)
 
     @commands.command()
     async def eightball(self, ctx, *, question):

@@ -88,19 +88,20 @@ class Members(commands.Cog):
         username or discriminator.
         """
 
-        await self.viking.update(before.guild.id)
+        for guild in before.mutual_guilds:
+            await self.viking.update(guild.id)
 
-        if before.name != after.name:
-            if before.name is None:
-                await self.event.name_update(before, after)
-            else:
-                await self.event.name_append(before, after)
+            if before.name != after.name:
+                if before.name is None:
+                    await self.event.name_update(before, after)
+                else:
+                    await self.event.name_append(before, after)
 
-        if before.discriminator != after.discriminator:
-            if before.discriminator is None:
-                await self.event.discriminator_update(before, after)
-            else:
-                await self.event.discriminator_append(before, after)
+            if before.discriminator != after.discriminator:
+                if before.discriminator is None:
+                    await self.event.discriminator_update(before, after)
+                else:
+                    await self.event.discriminator_append(before, after)
 
     # Commands
 

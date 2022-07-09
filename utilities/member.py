@@ -67,6 +67,7 @@ class MemberInterface:
             await model
             .select(
                 'discord_id',
+                'display_name',
                 'name',
                 'discriminator',
                 'nickname'
@@ -88,6 +89,18 @@ class MemberInterface:
                     return dict(row).get('discord_id')
 
             case _:
+                target = []
+
+                for row in rows:
+                    display_name = dict(row).get('display_name').lower()
+
+                    if name == display_name.lower():
+                        target.append(row)
+
+                if len(target) == 1:
+                    for member in target:
+                        return dict(member).get('discord_id')
+
                 await self.display_identical(self.context, rows)
 
                 discriminators = [
