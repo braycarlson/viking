@@ -59,8 +59,8 @@ class Roles(commands.Cog):
     # Commands
 
     @commands.command(hidden=True)
-    @commands.bot_has_permissions(manage_roles=True)
-    @commands.has_permissions(manage_roles=True)
+    @commands.bot_has_guild_permissions(manage_roles=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def addrole(self, ctx, name, *, identifier):
         """
         *addrole <role> <identifier>
@@ -85,8 +85,8 @@ class Roles(commands.Cog):
             log.info(f"{ctx.author} assigned the role {role} to {member}.")
 
     @commands.command(hidden=True)
-    @commands.bot_has_permissions(manage_roles=True)
-    @commands.has_permissions(manage_roles=True)
+    @commands.bot_has_guild_permissions(manage_roles=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def createrole(self, ctx, *, name):
         """
         *createrole <name>
@@ -108,8 +108,8 @@ class Roles(commands.Cog):
             await ctx.send('A role with that name already exists.')
 
     @commands.command(hidden=True)
-    @commands.bot_has_permissions(manage_roles=True)
-    @commands.has_permissions(manage_roles=True)
+    @commands.bot_has_guild_permissions(manage_roles=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def deleterole(self, ctx, *, name):
         """
         *deleterole <name>
@@ -133,8 +133,8 @@ class Roles(commands.Cog):
             await ctx.send('No role found.')
 
     @commands.command(hidden=True)
-    @commands.bot_has_permissions(manage_roles=True)
-    @commands.has_permissions(manage_roles=True)
+    @commands.bot_has_guild_permissions(manage_roles=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def removerole(self, ctx, name, *, identifier):
         """
         *removerole <role> <identifier>
