@@ -2,6 +2,9 @@ import discord
 import logging
 
 from discord.ext import commands
+from imaging.rune import Runepage
+from imaging.skill import SkillOrder
+from io import BytesIO
 from utilities.lol import (
     ASSET,
     Game,
@@ -15,17 +18,14 @@ from utilities.lol import (
     get_champion_image,
     get_champion_name,
     get_champion_runes,
-    get_champion_skill_order,
+    get_champion_skill,
     get_champion_statistics,
-    get_champion_version,
     get_item_name,
-    get_rune_name,
     get_spell_statistics,
     get_spell_version,
     get_mastery,
     get_placement,
-    search_for_champion,
-    search_for_spell,
+    search_for_spell
 )
 from utilities.format import format_list
 from utilities.request import fetch, RequestError
@@ -49,9 +49,8 @@ class LeagueOfLegends(commands.Cog):
         """
 
         champion = await get_champion(champion_name)
-        version = await get_champion_version()
-        image = await get_champion_image(champion)
         champion_id = await get_champion_id(champion)
+        champion_image = await get_champion_image(champion)
 
         url = f"{self.lol_api_url}/opgg/ranked/sr/items/{champion_id}"
         response = await fetch(self.viking.session, url)
@@ -81,9 +80,14 @@ class LeagueOfLegends(commands.Cog):
             title=f"Recommended Items for {champion}"
         )
 
-        embed.set_thumbnail(
-            url=f"{ASSET}/cdn/{version}/img/champion/{image}"
+        fp = self.viking.champion.joinpath(champion_image)
+
+        file = discord.File(
+            fp=fp,
+            filename='thumbnail.png'
         )
+
+        embed.set_thumbnail(url='attachment://thumbnail.png')
 
         if not build['Starting']:
             del build['Starting']
@@ -101,7 +105,7 @@ class LeagueOfLegends(commands.Cog):
                 value=items
             )
 
-        await ctx.send(embed=embed)
+        await ctx.send(embed=embed, file=file)
 
     @commands.command()
     async def skill(self, ctx, *, champion_name: str):
@@ -110,26 +114,42 @@ class LeagueOfLegends(commands.Cog):
         """
 
         champion = await get_champion(champion_name)
-        version = await get_champion_version()
-        image = await get_champion_image(champion)
-        skills = await get_champion_skill_order(champion)
+        champion_id = await get_champion_id(champion)
+        champion_image = await get_champion_image(champion)
+        skill = await get_champion_skill(champion_id)
 
-        embed = discord.Embed(
-            colour=self.viking.color,
-            title=f"Skill Order for {champion}"
+        # Skill Order
+        image = await self.viking.loop.run_in_executor(
+            None,
+            SkillOrder,
+            skill
         )
 
-        embed.set_thumbnail(
-            url=f"{ASSET}/cdn/{version}/img/champion/{image}"
+        fp = BytesIO()
+        image.save(fp, 'png')
+        fp.seek(0)
+
+        skillorder = discord.File(
+            fp=fp,
+            filename='skillorder.png'
         )
 
-        embed.add_field(
-            inline=False,
-            name='Skill Order',
-            value=''.join(skills)
+        # Thumbnail
+        fp = self.viking.champion.joinpath(champion_image)
+
+        thumbnail = discord.File(
+            fp=fp,
+            filename='thumbnail.png'
         )
 
-        await ctx.send(embed=embed)
+        title = f"Skill Order for {champion_name}"
+
+        embed = discord.Embed(title=title)
+        embed.set_thumbnail(url='attachment://thumbnail.png')
+        embed.set_image(url='attachment://skillorder.png')
+
+        files = [skillorder, thumbnail]
+        await ctx.send(embed=embed, files=files)
 
     @commands.command()
     async def champion(self, ctx, *, champion_name: str):
@@ -140,17 +160,24 @@ class LeagueOfLegends(commands.Cog):
         """
 
         async with ctx.typing():
-            name = await search_for_champion(champion_name)
+            name = await get_champion(champion_name)
             champion = await get_champion_statistics(name)
-            version = await get_champion_version()
+            champion_image = await get_champion_image(name)
 
             embed = discord.Embed(
                 colour=self.viking.color,
                 title=champion.name
             )
-            embed.set_thumbnail(
-                url=f"{ASSET}/cdn/{version}/img/champion/{champion.full_image}"
+
+            fp = self.viking.champion.joinpath(champion_image)
+
+            file = discord.File(
+                fp=fp,
+                filename='thumbnail.png'
             )
+
+            embed.set_thumbnail(url='attachment://thumbnail.png')
+
             embed.add_field(
                 inline=False,
                 name='Health',
@@ -210,7 +237,7 @@ class LeagueOfLegends(commands.Cog):
                       f"(+{champion.critical_strike_per_level} per level)"
             )
 
-        await ctx.send(embed=embed)
+        await ctx.send(embed=embed, file=file)
 
     @commands.command(aliases=['live'])
     @commands.cooldown(rate=1, per=10.0, type=commands.BucketType.default)
@@ -274,6 +301,45 @@ class LeagueOfLegends(commands.Cog):
             await ctx.send(embed=main)
             await ctx.send(embed=blue)
             await ctx.send(embed=red)
+
+    @commands.command()
+    async def rune(self, ctx, *, champion_name: str):
+        champion = await get_champion(champion_name)
+        runes = await get_champion_runes(champion)
+        champion_image = await get_champion_image(champion)
+
+        # Runepage
+        image = await self.viking.loop.run_in_executor(
+            None,
+            Runepage,
+            runes
+        )
+
+        fp = BytesIO()
+        image.save(fp, 'png')
+        fp.seek(0)
+
+        runepage = discord.File(
+            fp=fp,
+            filename='runepage.png'
+        )
+
+        # Thumbnail
+        fp = self.viking.champion.joinpath(champion_image)
+
+        thumbnail = discord.File(
+            fp=fp,
+            filename='thumbnail.png'
+        )
+
+        title = f"Runepage for {champion_name}"
+
+        embed = discord.Embed(title=title)
+        embed.set_thumbnail(url='attachment://thumbnail.png')
+        embed.set_image(url='attachment://runepage.png')
+
+        files = [runepage, thumbnail]
+        await ctx.send(embed=embed, files=files)
 
     @commands.command()
     async def spell(self, ctx, *, spell_name: str):

@@ -74,6 +74,11 @@ class Viking(commands.Bot):
 
         # Directories
         self.images = self.root.joinpath('images')
+        self.champion = self.images.joinpath('lol/champion')
+        self.item = self.images.joinpath('lol/item')
+        self.rune = self.images.joinpath('lol/rune')
+        self.spell = self.images.joinpath('lol/spell')
+
         self.logs = self.root.joinpath('logs')
         self.sound = self.root.joinpath('sound')
 
@@ -115,7 +120,7 @@ class Viking(commands.Bot):
             time = midnight()
             await asyncio.sleep(time)
 
-            for guild in self.viking.guilds:
+            for guild in self.guilds:
                 for channel in guild.text_channels:
                     if channel.name == 'spam':
                         await channel.purge()
@@ -147,7 +152,9 @@ class Viking(commands.Bot):
     async def process_commands(self, message):
         ctx = await self.get_context(message)
 
-        await self.update(message.guild.id)
+        if message.guild is not None:
+            await self.update(message.guild.id)
+
         await self.invoke(ctx)
 
     async def on_command_error(self, ctx, error):

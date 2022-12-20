@@ -40,6 +40,41 @@ class Champion(lol.Model):
     updated_at = lol.Column(lol.DateTime(), nullable=True)
 
 
+class Ability(lol.Model):
+    __tablename__ = 'ability'
+
+    champion_id = lol.Column(lol.String(10), lol.ForeignKey('champion.id'), primary_key=True, nullable=False)
+
+    p_name = lol.Column(lol.String(100), nullable=True)
+    p_description = lol.Column(lol.String(1000), nullable=True)
+    p_image = lol.Column(lol.String(250), nullable=True)
+
+    q_id = lol.Column(lol.String(100), nullable=True)
+    q_name = lol.Column(lol.String(100), nullable=True)
+    q_description = lol.Column(lol.String(1000), nullable=True)
+    q_image = lol.Column(lol.String(250), nullable=True)
+
+    w_id = lol.Column(lol.String(100), nullable=True)
+    w_name = lol.Column(lol.String(100), nullable=True)
+    w_description = lol.Column(lol.String(1000), nullable=True)
+    w_image = lol.Column(lol.String(250), nullable=True)
+
+    e_id = lol.Column(lol.String(100), nullable=True)
+    e_name = lol.Column(lol.String(100), nullable=True)
+    e_description = lol.Column(lol.String(1000), nullable=True)
+    e_image = lol.Column(lol.String(250), nullable=True)
+
+    r_id = lol.Column(lol.String(100), nullable=True)
+    r_name = lol.Column(lol.String(100), nullable=True)
+    r_description = lol.Column(lol.String(1000), nullable=True)
+    r_image = lol.Column(lol.String(250), nullable=True)
+
+    created_at = lol.Column(lol.DateTime(), nullable=True)
+    updated_at = lol.Column(lol.DateTime(), nullable=True)
+
+    _fk_champion_id = lol.ForeignKeyConstraint(['champion_id'], ['champion.id'])
+
+
 class Item(lol.Model):
     __tablename__ = 'item'
 
@@ -59,6 +94,7 @@ class Rune(lol.Model):
     id = lol.Column(lol.String(10), primary_key=True, nullable=False)
     key = lol.Column(lol.String(50), nullable=True)
     name = lol.Column(lol.String(50), nullable=True)
+    icon = lol.Column(lol.String(250), nullable=True)
     parent = lol.Column(lol.String(10), nullable=True)
     keystone = lol.Column(lol.Boolean(), nullable=True)
 

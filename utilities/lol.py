@@ -1,4 +1,5 @@
 from database.lol import (
+    Ability,
     Champion,
     Item,
     OPGGKRARAM,
@@ -75,6 +76,30 @@ async def get_spell_version():
     )
 
 
+async def get_champion_skill(champion_id: str):
+    skill = (
+        await OPGGKRARAM
+        .select('skills')
+        .where(
+            OPGGKRARAM.champion_id == champion_id
+        )
+        .gino
+        .scalar()
+    )
+
+    ability = (
+        await Ability
+        .select('q_image', 'w_image', 'e_image', 'r_image')
+        .where(
+            Ability.champion_id == champion_id
+        )
+        .gino
+        .all()
+    )
+
+    return (skill, ability)
+
+
 async def get_champion(champion_name: str):
     champion_name = alphabet(champion_name)
     champion_name = await search_for_champion(champion_name)
@@ -94,6 +119,18 @@ async def get_champion_name(champion_id: str):
     return (
         await Champion
         .select('name')
+        .where(
+            Champion.id == str(champion_id)
+        )
+        .gino
+        .scalar()
+    )
+
+
+async def get_champion_key(champion_id: str):
+    return (
+        await Champion
+        .select('key')
         .where(
             Champion.id == str(champion_id)
         )

@@ -4,6 +4,7 @@ import paramiko
 
 from bot import configuration
 from discord.ext import commands
+from pathlib import Path
 
 
 log = logging.getLogger(__name__)
@@ -77,6 +78,34 @@ class Administration(commands.Cog):
 
         await self.viking.session.close()
         await self.viking.close()
+
+    @commands.command(hidden=True)
+    @commands.is_owner()
+    async def wake(self, ctx):
+        """
+        *wake
+
+        A command that wakes a PC via magic packet
+        """
+
+        await ctx.message.delete()
+
+        client = paramiko.SSHClient()
+
+        path = self.root.joinpath('known_hosts')
+        client.load_host_keys(path)
+
+        client.connect(
+            hostname=configuration['paramiko']['hostname'],
+            username=configuration['paramiko']['username'],
+            password=configuration['paramiko']['password'],
+        )
+
+        path = Path('/home/brayden/Documents/wol.sh')
+        command = f"bash {path}"
+
+        client.exec_command(command)
+        client.close()
 
     @commands.command(hidden=True)
     @commands.is_owner()

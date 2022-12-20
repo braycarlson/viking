@@ -3,6 +3,7 @@ asyncpg
 cchardet
 gino
 paramiko
+pillow
 pipdeptree
 pip-upgrader
 python-dateutil

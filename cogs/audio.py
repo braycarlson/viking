@@ -19,13 +19,13 @@ from utilities.request import download
 class Player:
     def __init__(self, ctx):
         self.viking = ctx.bot
-        self.guild = ctx.guild
         self.cog = ctx.cog
+        self.guild = ctx.guild
 
         self.queue = asyncio.Queue()
         self.event = asyncio.Event()
 
-        asyncio.create_task(
+        self.viking.loop.create_task(
             self.player_loop()
         )
 
@@ -111,7 +111,12 @@ class Audio(commands.Cog):
         )
 
         if match:
-            filename, _ = match
+            if len(match) == 2:
+                filename, _ = match
+
+            if len(match) == 3:
+                filename, _, _ = match
+
             path = sound.get(filename)
             return path
 
