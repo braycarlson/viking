@@ -1,5 +1,6 @@
 import asyncio
 import discord
+import logging
 import os
 import sys
 
@@ -14,6 +15,9 @@ from sqlalchemy.dialects.postgresql import insert
 from utilities.format import alphanumerical
 from utilities.member import MemberInterface
 from utilities.request import download
+
+
+log = logging.getLogger(__name__)
 
 
 class Player:
@@ -49,7 +53,8 @@ class Player:
             )
 
             await self.event.wait()
-            source.cleanup()
+
+        source.cleanup()
 
     def destroy(self, guild):
         return self.viking.loop.create_task(
