@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import asyncio
 import discord
 import time
@@ -5,18 +7,23 @@ import time
 from discord.ext import commands
 from json import JSONDecodeError
 from math import floor
-from random import choice, randint, sample
+from typing import TYPE_CHECKING
 from utilities.format import format_time, random_case
 from utilities.request import fetch
 
+if TYPE_CHECKING:
+    from bot import Viking
+    from discord import Message
+    from discord.ext.commands import Context
+
 
 class Basic(commands.Cog):
-    def __init__(self, viking):
+    def __init__(self, viking: Viking):
         self.viking = viking
         self.start_time = viking.start_time
 
     @commands.command()
-    async def coinflip(self, ctx):
+    async def coinflip(self, ctx: Context) -> None:
         """
         *coinflip
 
@@ -28,11 +35,11 @@ class Basic(commands.Cog):
             'Tails!'
         )
 
-        selection = choice(choices)
+        selection = self.viking.random.choice(choices)
         await ctx.send(selection)
 
     @commands.command()
-    async def count(self, ctx, *, message):
+    async def count(self, ctx: Context, *, message: str) -> None:
         """
         *count <message>
 
@@ -45,20 +52,20 @@ class Basic(commands.Cog):
         await ctx.send(f"There are {length} word(s) in this message.")
 
     @commands.command()
-    async def dice(self, ctx):
+    async def dice(self, ctx: Context) -> None:
         """
         *dice
 
         A command that rolls a dice.
         """
 
-        choices = randint(1, 6)
+        choices = self.viking.random.randint(1, 6)
         await ctx.send(choices)
 
     @commands.command()
     @commands.bot_has_guild_permissions(move_members=True)
     @commands.has_guild_permissions(move_members=True)
-    async def divide(self, ctx):
+    async def divide(self, ctx: Context) -> Message | None:
         """
         *divide
 
@@ -70,14 +77,13 @@ class Basic(commands.Cog):
             length = len(members)
 
             if length == 1:
-                await ctx.send('There must be another member present.')
-                return
+                return await ctx.send('There must be another member present.')
 
             amount = int(
                 floor(length / 2)
             )
 
-            selected = sample(members, amount)
+            selected = self.viking.random.sample(members, amount)
 
             channels = []
 
@@ -95,13 +101,15 @@ class Basic(commands.Cog):
                 if condition:
                     channels.append(channel)
 
-            selection = choice(channels)
+            selection = self.viking.random.choice(channels)
 
             for member in selected:
                 await member.move_to(selection)
 
+        return None
+
     @commands.command()
-    async def eightball(self, ctx, *, question):
+    async def eightball(self, ctx: Context, *, _: str) -> None:
         """
         *eightball <question>
 
@@ -121,11 +129,11 @@ class Basic(commands.Cog):
             'It is unlikely.'
         )
 
-        selection = choice(choices)
+        selection = self.viking.random.choice(choices)
         await ctx.send(selection)
 
     @commands.command()
-    async def hello(self, ctx):
+    async def hello(self, ctx: Context) -> None:
         """
         *hello
 
@@ -141,11 +149,11 @@ class Basic(commands.Cog):
             'Hola!'
         )
 
-        selection = choice(choices)
+        selection = self.viking.random.choice(choices)
         await ctx.send(selection)
 
     @commands.command()
-    async def mock(self, ctx, *, message):
+    async def mock(self, ctx: Context, *, message: str) -> None:
         """
         *mock <message>
 
@@ -158,7 +166,7 @@ class Basic(commands.Cog):
         await ctx.send(message)
 
     @commands.command()
-    async def quotes(self, ctx):
+    async def quotes(self, ctx: Context) -> None:
         """
         *quotes
 
@@ -197,7 +205,7 @@ class Basic(commands.Cog):
             await ctx.send(embed=embed)
 
     @commands.command()
-    async def repeat(self, ctx, amount, *, message):
+    async def repeat(self, ctx: Context, amount: int, *, message: str) -> None:
         """
         *repeat <amount> <message>
 
@@ -213,7 +221,7 @@ class Basic(commands.Cog):
             await ctx.send('Please use a number less than or equal to five.')
 
     @commands.command()
-    async def reverse(self, ctx, *, message):
+    async def reverse(self, ctx: Context, *, message: str) -> None:
         """
         *reverse <message>
 
@@ -229,7 +237,7 @@ class Basic(commands.Cog):
         await ctx.send(reverse)
 
     @commands.command()
-    async def tts(self, ctx, *, message):
+    async def tts(self, ctx: Context, *, message: str) -> None:
         """
         *tts <message>
 
@@ -240,7 +248,7 @@ class Basic(commands.Cog):
         await ctx.send(message, tts=True)
 
     @commands.command()
-    async def uptime(self, ctx):
+    async def uptime(self, ctx: Context) -> None:
         """
         *uptime
 
@@ -266,6 +274,6 @@ class Basic(commands.Cog):
         await ctx.send(f"{year} {month} {week} {day} {hour} {minute} {second}")
 
 
-async def setup(viking):
+async def setup(viking: Viking) -> None:
     basic = Basic(viking)
     await viking.add_cog(basic)

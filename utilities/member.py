@@ -1,31 +1,38 @@
+from __future__ import annotations
+
 import asyncio
 import discord
 
 from model.member import DiscordMember, DiscordMemberError
 from sqlalchemy import func
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from discord.ext.commands import Context
+    from sqlalchemy.engine.result import RowProxy
 
 
 class MemberInterface:
-    def __init__(self, context, identifier):
-        self.context = context
+    def __init__(self, ctx: Context, identifier: str):
+        self.ctx = ctx
         self.identifier = identifier
-        self.viking = context.bot
+        self.viking = self.ctx.bot
 
-    async def get(self):
+    async def get(self) -> str | None:
         discord_id = None
 
         try:
             discord_id = await self.from_id()
         except DiscordMemberError:
             message = 'No member found.'
-            await self.context.send(message)
+            await self.ctx.send(message)
         except asyncio.TimeoutError:
             message = 'You have run out of time. Please try again.'
-            await self.context.send(message)
-        finally:
-            return discord_id
+            await self.ctx.send(message)
 
-    async def from_id(self):
+        return discord_id
+
+    async def from_id(self) -> str:
         """
         A function to get a member by ID from the database.
         """
@@ -49,7 +56,7 @@ class MemberInterface:
 
             return row
 
-    async def from_name(self, name):
+    async def from_name(self, name: str) -> None:
         """
         A function to get a member by account name or nickname from the
         database.
@@ -69,7 +76,6 @@ class MemberInterface:
                 'discord_id',
                 'display_name',
                 'name',
-                'discriminator',
                 'nickname'
             )
             .where(condition)
@@ -85,8 +91,8 @@ class MemberInterface:
                 raise DiscordMemberError
 
             case 1:
-                for row in rows:
-                    return dict(row).get('discord_id')
+                row, *_ = rows
+                return dict(row).get('discord_id')
 
             case _:
                 target = []
@@ -101,35 +107,26 @@ class MemberInterface:
                     for member in target:
                         return dict(member).get('discord_id')
 
-                await self.display_identical(self.context, rows)
+                await self.display_identical(rows)
 
-                discriminators = [
-                    dict(row).get('discriminator')
-                    for row in rows
-                ]
+                indices = {
+                    index: dict(row).get('discord_id')
+                    for index, row in enumerate(rows, 1)
+                }
 
-                return await self.from_discriminator(
-                    name,
-                    discriminators
-                )
+                return await self.from_index(indices)
 
-    async def from_discriminator(self, name, discriminator):
-        """
-        A function to get a member by discriminator to discern between
-        members with identical account names or nicknames.
-        """
-
-        def check(message):
+    async def from_index(self, indices: list[int]) -> str:
+        def check(message: str) -> bool:
             condition = (
-                message.author == self.context.author and
-                message.channel == self.context.channel
+                message.author == self.ctx.author and
+                message.channel == self.ctx.channel
             )
 
-            if (condition):
-                if message.content in discriminator:
-                    return True
+            if condition:
+                return True
 
-                raise DiscordMemberError
+            return False
 
         try:
             message = await self.viking.wait_for(
@@ -140,28 +137,16 @@ class MemberInterface:
         except asyncio.TimeoutError:
             raise
         else:
-            model = self.viking.guild.member
+            try:
+                index = int(message.content)
 
-            condition = (
-                (func.levenshtein(func.lower(model.display_name), name) <= 3) &
-                (model.discriminator == message.content) |
+                if index in indices:
+                    index = int(message.content)
+                    return indices[index]
+            except Exception as exception:
+                raise DiscordMemberError
 
-                (func.levenshtein(func.lower(model.name), name) <= 3) &
-                (model.discriminator == message.content) |
-
-                (func.levenshtein(func.lower(model.nickname), name) <= 3) &
-                (model.discriminator == message.content)
-            )
-
-            return (
-                await model
-                .select('discord_id')
-                .where(condition)
-                .gino
-                .scalar()
-            )
-
-    async def display_identical(self, ctx, rows):
+    async def display_identical(self, rows: list[RowProxy]) -> None:
         """
         A function that will output each member with an identical account
         name or nickname.
@@ -174,17 +159,12 @@ class MemberInterface:
 
         embed = discord.Embed(color=color, title=title)
 
-        for row in rows:
+        for index, row in enumerate(rows, 1):
             row = dict(row)
             member = DiscordMember(row)
 
-            embed.add_field(name='Account Name', value=member.name)
-            embed.add_field(name='Discriminator', value=member.discriminator)
-            embed.add_field(name='Nickname', value=member.nickname)
+            embed.add_field(name='#', value=index)
+            embed.add_field(name='Name', value=member.name)
+            embed.add_field(name='Nickname', value=member.display_name)
 
-        embed.add_field(
-            name='\u200B',
-            value='Please enter the member\'s discriminator.'
-        )
-
-        await ctx.send(embed=embed)
+        await self.ctx.send(embed=embed)

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import aiohttp
 import asyncio
 import discord
@@ -14,15 +16,20 @@ from database.engine import (
     Guild,
     lol,
     nac,
-    viking
+    viking,
 )
-from datetime import datetime
+from datetime import datetime, timezone
 from discord.ext import commands
 from pathlib import Path
+from random import SystemRandom
 from sqlalchemy import func
 from tabulate import tabulate
+from typing import TYPE_CHECKING
 from utilities.format import format_list
 from utilities.time import midnight
+
+if TYPE_CHECKING:
+    from discord.app_commands import AppCommandError
 
 
 path = Path(__file__).parent.joinpath('config.ini')
@@ -38,7 +45,7 @@ class Viking(commands.Bot):
         allowed_mentions = discord.AllowedMentions(
             everyone=False,
             roles=False,
-            users=True
+            users=True,
         )
 
         intents = discord.Intents(
@@ -59,7 +66,7 @@ class Viking(commands.Bot):
             enable_debug_events=True,
             intents=intents,
             pm_help=None,
-            help_attrs=dict(hidden=True)
+            help_attrs={'hidden': True},
         )
 
         # Bot
@@ -68,6 +75,7 @@ class Viking(commands.Bot):
         self.color = discord.Colour.purple()
         self.initialize_extensions = []
         self.owner_id = configuration['bot'].getint('owner_id')
+        self.random = SystemRandom()
         self.root = Path(__file__).parent
         self.start_time = time.time()
         self.token = configuration['bot']['token']
@@ -85,7 +93,7 @@ class Viking(commands.Bot):
         # Database
         self.identifier = ContextVar(
             '863292513141522433',
-            default='863292513141522433'
+            default='863292513141522433',
         )
         self.uri = configuration['database']['postgresql']
 
@@ -100,17 +108,17 @@ class Viking(commands.Bot):
         self.wow_api_key = configuration['wow']['key']
 
     @property
-    def guild(self):
+    def guild(self) -> str:
         identifier = self.identifier.get()
 
         guild = Guild()
         return guild.get(identifier)
 
-    async def update(self, identifier):
+    async def update(self, identifier: str) -> None:
         identifier = str(identifier)
         self.identifier.set(identifier)
 
-    async def purge(self):
+    async def purge(self) -> None:
         """
         A function that purges all messages from the spam channel at
         midnight.
@@ -125,7 +133,7 @@ class Viking(commands.Bot):
                     if channel.name == 'spam':
                         await channel.purge()
 
-    async def setup_hook(self):
+    async def setup_hook(self) -> None:
         self.loop.create_task(
             self.purge()
         )
@@ -137,19 +145,19 @@ class Viking(commands.Bot):
 
         self.session = aiohttp.ClientSession(loop=self.loop)
 
-    def get_extensions(self):
+    def get_extensions(self) -> None:
         for path in self.root.joinpath('cogs').iterdir():
             if not path.name.startswith('.') and path.is_file():
                 self.initialize_extensions.append(f'cogs.{path.stem}')
 
-    async def load_extensions(self):
+    async def load_extensions(self) -> None:
         for extension in self.initialize_extensions:
             try:
                 await self.load_extension(extension)
             except ModuleNotFoundError as exception:
                 log.warning(exception)
 
-    async def process_commands(self, message):
+    async def process_commands(self, message: str) -> None:
         ctx = await self.get_context(message)
 
         if message.guild is not None:
@@ -157,7 +165,11 @@ class Viking(commands.Bot):
 
         await self.invoke(ctx)
 
-    async def on_command_error(self, ctx, error):
+    async def on_command_error(
+        self,
+        ctx: commands.Context,
+        error: AppCommandError
+    ) -> None:
         """
         An event that is called when an error is raised while invoking
         a command.
@@ -219,23 +231,22 @@ class Viking(commands.Bot):
             case _:
                 traceback.print_tb(error.__traceback__)
 
-                log.warning(
-                    f"{error.__class__.__name__} "
-                    f"from {ctx.command.qualified_name}."
-                )
+                message = f"{error.__class__.__name__} from {ctx.command.qualified_name}."
+                log.warning(message)
 
                 if hasattr(error, 'original'):
                     log.warning(error.original)
 
-    async def on_connect(self):
+    async def on_connect(self) -> None:
         """
         An event that is called when the client has successfully
         connected to Discord.
         """
 
-        log.info(f"{self.bot_name} is connected.")
+        message = f"{self.bot_name} is connected."
+        log.info(message)
 
-    async def on_message(self, message):
+    async def on_message(self, message: str) -> None:
         """
         An event that is called every time a message is recieved,
         including Viking.
@@ -243,8 +254,11 @@ class Viking(commands.Bot):
 
         condition = (
             message.author.bot or
+            message.content.endswith('*') or
             message.content.startswith('*') and
             message.content.endswith('*') or
+            message.content.startswith('**') or
+            message.content.endswith('**') or
             message.content.startswith('**') and
             message.content.endswith('**')
         )
@@ -254,7 +268,7 @@ class Viking(commands.Bot):
 
         await self.process_commands(message)
 
-    async def on_ready(self):
+    async def on_ready(self) -> None:
         """
         An event that is called when the client is done preparing data
         received from Discord.
@@ -267,15 +281,16 @@ class Viking(commands.Bot):
             ['Name', self.bot_name],
             ['Python', f"{python.major}.{python.minor}.{python.micro}"],
             ['Discord.py', discord.__version__],
-            ['Date', datetime.now().strftime('%B %d, %Y at %I:%M %p')]
+            ['Date', datetime.now(tz=timezone.utc).strftime('%B %d, %Y at %I:%M %p')]
         ]
 
         display = tabulate(table, tablefmt='psql')
         print(display)
 
-        log.info(f"{self.bot_name} is ready.")
+        message = f"{self.bot_name} is ready."
+        log.info(message)
 
-    async def start(self):
+    async def start(self) -> None:
         self.get_extensions()
         await self.load_extensions()
         await super().start(self.token, reconnect=True)

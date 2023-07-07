@@ -1,9 +1,12 @@
+from __future__ import annotations
+
 import discord
 import logging
 
 from database.viking import Role
 from discord.ext import commands
 from model.role import DiscordRole, DiscordRoleError
+from typing import TYPE_CHECKING
 from utilities.event import RoleEvent
 from utilities.member import MemberInterface
 from utilities.role import (
@@ -11,19 +14,24 @@ from utilities.role import (
     get_role_by_id
 )
 
+if TYPE_CHECKING:
+    from bot import Viking
+    from discord import Role as MemberRole
+    from discord.ext.commands import Context
+
 
 log = logging.getLogger(__name__)
 
 
 class Roles(commands.Cog):
-    def __init__(self, viking):
+    def __init__(self, viking: Viking):
         self.viking = viking
         self.event = RoleEvent(self.viking)
 
     # Event Listeners
 
     @commands.Cog.listener()
-    async def on_guild_role_create(self, role):
+    async def on_guild_role_create(self, role: MemberRole) -> None:
         """
         An event that is called when a role is created.
         """
@@ -32,7 +40,7 @@ class Roles(commands.Cog):
         await self.event.role_create(role)
 
     @commands.Cog.listener()
-    async def on_guild_role_delete(self, role):
+    async def on_guild_role_delete(self, role: MemberRole) -> None:
         """
         An event that is called when a role is deleted.
         """
@@ -42,7 +50,11 @@ class Roles(commands.Cog):
         await self.event.role_delete(role.id)
 
     @commands.Cog.listener()
-    async def on_guild_role_update(self, before, after):
+    async def on_guild_role_update(
+        self,
+        before: MemberRole,
+        after: MemberRole
+    ) -> None:
         """
         An event that is called when a role is updated.
         """
@@ -61,7 +73,7 @@ class Roles(commands.Cog):
     @commands.command(hidden=True)
     @commands.bot_has_guild_permissions(manage_roles=True)
     @commands.has_guild_permissions(manage_roles=True)
-    async def addrole(self, ctx, name, *, identifier):
+    async def addrole(self, ctx: Context, name: str, *, identifier: str) -> None:
         """
         *addrole <role> <identifier>
 
@@ -82,12 +94,13 @@ class Roles(commands.Cog):
         except discord.HTTPException:
             await ctx.send(f"{member} could not be assigned the {role} role.")
         else:
-            log.info(f"{ctx.author} assigned the role {role} to {member}.")
+            message = f"{ctx.author} assigned the role {role} to {member}."
+            log.info(message)
 
     @commands.command(hidden=True)
     @commands.bot_has_guild_permissions(manage_roles=True)
     @commands.has_guild_permissions(manage_roles=True)
-    async def createrole(self, ctx, *, name):
+    async def createrole(self, ctx: Context, *, name: str) -> None:
         """
         *createrole <name>
 
@@ -103,14 +116,15 @@ class Roles(commands.Cog):
             except discord.HTTPException:
                 await ctx.send(f"{name} could not be created.")
             else:
-                log.info(f"{ctx.author} created the role {name}.")
+                message = f"{ctx.author} created the role {name}."
+                log.info(message)
         else:
             await ctx.send('A role with that name already exists.')
 
     @commands.command(hidden=True)
     @commands.bot_has_guild_permissions(manage_roles=True)
     @commands.has_guild_permissions(manage_roles=True)
-    async def deleterole(self, ctx, *, name):
+    async def deleterole(self, ctx: Context, *, name: str) -> None:
         """
         *deleterole <name>
 
@@ -128,14 +142,15 @@ class Roles(commands.Cog):
             except discord.HTTPException:
                 return await ctx.send(f"{name} could not be deleted.")
             else:
-                log.info(f"{ctx.author} deleted the role {name}.")
+                message = f"{ctx.author} deleted the role {name}."
+                log.info(message)
         else:
             await ctx.send('No role found.')
 
     @commands.command(hidden=True)
     @commands.bot_has_guild_permissions(manage_roles=True)
     @commands.has_guild_permissions(manage_roles=True)
-    async def removerole(self, ctx, name, *, identifier):
+    async def removerole(self, ctx: Context, name: str, *, identifier: str) -> None:
         """
         *removerole <role> <identifier>
 
@@ -156,10 +171,11 @@ class Roles(commands.Cog):
         except discord.HTTPException:
             await ctx.send(f"The {role} role could not be removed from {member}.")
         else:
-            log.info(f"{ctx.author} removed the role {role} from {member}.")
+            message = f"{ctx.author} removed the role {role} from {member}."
+            log.info(message)
 
     @commands.command()
-    async def role(self, ctx, *, identifier):
+    async def role(self, ctx: Context, *, identifier: str) -> None:
         """
         *role <identifier>
 
@@ -221,6 +237,6 @@ class Roles(commands.Cog):
             await ctx.send(embed=embed)
 
 
-async def setup(viking):
+async def setup(viking: Viking) -> None:
     roles = Roles(viking)
     await viking.add_cog(roles)

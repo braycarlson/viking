@@ -1,26 +1,33 @@
+from __future__ import annotations
+
 import database.engine
 
 from database.command import Hidden, Public
 from database.nac import Member, Role, Sound
 from database.viking import Member, Role, Sound
-from datetime import datetime
+from datetime import datetime, timezone
 from discord.ext import commands
 from sqlalchemy import func
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from bot import Viking
+    from discord import Guild
+    from discord.ext.commands import Context
 
 
 class Migration(commands.Cog):
-    def __init__(self, viking):
+    def __init__(self, viking: Viking):
         self.viking = viking
         self.bot_id = viking.bot_id
         self.root = viking.root
         self.sound = viking.sound
 
-    async def insert_member(self, model, guild):
+    async def insert_member(self, model, guild: Guild) -> None:
         for member in guild.members:
             await model.create(
                 discord_id=member.id,
                 name=member.name,
-                discriminator=member.discriminator,
                 display_name=member.display_name,
                 nickname=member.nick,
                 role_id=member.top_role.id,
@@ -29,7 +36,7 @@ class Migration(commands.Cog):
                 joined_at=member.joined_at
             )
 
-    async def insert_role(self, model, guild):
+    async def insert_role(self, model, guild: Guild) -> None:
         for role in guild.roles:
             await model.create(
                 id=role.id,
@@ -43,10 +50,15 @@ class Migration(commands.Cog):
                 created_at=role.created_at
             )
 
-    async def insert_sound(self, model):
+    async def insert_sound(self, model) -> None:
         directory = self.sound.joinpath('member')
-        sounds = [path for path in directory.iterdir()]
-        date = datetime.now()
+
+        sounds = [
+            path
+            for path in directory.iterdir()
+        ]
+
+        date = datetime.now(timezone.utc)
 
         for sound in sounds:
             await model.create(
@@ -55,7 +67,7 @@ class Migration(commands.Cog):
                 created_at=date
             )
 
-    async def insert_public(self):
+    async def insert_public(self) -> None:
         for viking_commands in self.viking.commands:
             if not viking_commands.hidden:
                 await Public.create(name=viking_commands.name)
@@ -76,7 +88,7 @@ class Migration(commands.Cog):
                             .status()
                         )
 
-    async def insert_hidden(self):
+    async def insert_hidden(self) -> None:
         for viking_commands in self.viking.commands:
             if viking_commands.hidden:
                 await Hidden.create(name=viking_commands.name)
@@ -99,19 +111,19 @@ class Migration(commands.Cog):
 
     @commands.command(hidden=True)
     @commands.is_owner()
-    async def update_public(self, ctx):
+    async def update_public(self, _: Context) -> None:
         query = await Public.select('name').gino.all()
 
-        database_commands = set(
+        database_commands = {
             dict(commands).get('name')
             for commands in query
-        )
+        }
 
-        viking_commands = set(
+        viking_commands = {
             commands.name
             for commands in self.viking.commands
             if not commands.hidden
-        )
+        }
 
         in_viking = [
             command
@@ -161,7 +173,7 @@ class Migration(commands.Cog):
 
     @commands.command(hidden=True)
     @commands.is_owner()
-    async def drop(self, ctx):
+    async def drop(self, ctx: Context) -> None:
         """
         *drop <table>
 
@@ -179,7 +191,7 @@ class Migration(commands.Cog):
 
     @commands.command(hidden=True)
     @commands.is_owner()
-    async def update(self, ctx):
+    async def update(self, ctx: Context) -> None:
         """
         *update
 
@@ -192,7 +204,7 @@ class Migration(commands.Cog):
 
     @commands.command(hidden=True)
     @commands.is_owner()
-    async def create(self, ctx):
+    async def create(self, ctx: Context) -> None:
         """
         *create
 
@@ -211,7 +223,7 @@ class Migration(commands.Cog):
 
     @commands.command(hidden=True)
     @commands.is_owner()
-    async def run(self, ctx):
+    async def run(self, ctx: Context) -> None:
         """
         *run
 
@@ -235,6 +247,6 @@ class Migration(commands.Cog):
         await self.insert_hidden()
 
 
-async def setup(viking):
+async def setup(viking: Viking) -> None:
     migration = Migration(viking)
     await viking.add_cog(migration)

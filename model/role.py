@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from dataclasses import dataclass
 
 
@@ -7,8 +9,6 @@ class DiscordRoleError(Exception):
     A RoleError is raised when a role is not found in the database
     from user input. This can include by an ID or name.
     """
-
-    pass
 
 
 @dataclass
@@ -25,5 +25,5 @@ class DiscordRole:
         self.created_at = data.get('created_at')
 
     @property
-    def created(self):
+    def created(self) -> str:
         return self.created_at.strftime('%B %d, %Y')

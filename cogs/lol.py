@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import discord
 import logging
 
@@ -5,6 +7,7 @@ from discord.ext import commands
 from imaging.rune import Runepage
 from imaging.skill import SkillOrder
 from io import BytesIO
+from typing import TYPE_CHECKING
 from utilities.lol import (
     ASSET,
     Game,
@@ -30,12 +33,16 @@ from utilities.lol import (
 from utilities.format import format_list
 from utilities.request import fetch, RequestError
 
+if TYPE_CHECKING:
+    from bot import Viking
+    from discord.ext.commands import Context
+
 
 log = logging.getLogger(__name__)
 
 
 class LeagueOfLegends(commands.Cog):
-    def __init__(self, viking):
+    def __init__(self, viking: Viking):
         self.viking = viking
         self.images = viking.images
         self.lol_api_key = viking.lol_api_key
@@ -43,7 +50,7 @@ class LeagueOfLegends(commands.Cog):
         self.params = {'api_key': self.lol_api_key}
 
     @commands.command()
-    async def build(self, ctx, *, champion_name: str):
+    async def build(self, ctx: Context, *, champion_name: str) -> None:
         """
         *build <name>
         """
@@ -92,7 +99,7 @@ class LeagueOfLegends(commands.Cog):
         if not build['Starting']:
             del build['Starting']
 
-        for key in build.keys():
+        for key in build:
             items = format_list(
                 build.get(key),
                 symbol='bullet',
@@ -108,7 +115,7 @@ class LeagueOfLegends(commands.Cog):
         await ctx.send(embed=embed, file=file)
 
     @commands.command()
-    async def skill(self, ctx, *, champion_name: str):
+    async def skill(self, ctx: Context, *, champion_name: str) -> None:
         """
         *skill <name>
         """
@@ -152,7 +159,7 @@ class LeagueOfLegends(commands.Cog):
         await ctx.send(embed=embed, files=files)
 
     @commands.command()
-    async def champion(self, ctx, *, champion_name: str):
+    async def champion(self, ctx: Context, *, champion_name: str) -> None:
         """
         *champion <name>
 
@@ -241,7 +248,7 @@ class LeagueOfLegends(commands.Cog):
 
     @commands.command(aliases=['live'])
     @commands.cooldown(rate=1, per=10.0, type=commands.BucketType.default)
-    async def game(self, ctx, *, summoner_name: str):
+    async def game(self, ctx: Context, *, summoner_name: str) -> None:
         """
         *game <username>
 
@@ -303,7 +310,7 @@ class LeagueOfLegends(commands.Cog):
             await ctx.send(embed=red)
 
     @commands.command()
-    async def rune(self, ctx, *, champion_name: str):
+    async def rune(self, ctx: Context, *, champion_name: str) -> None:
         champion = await get_champion(champion_name)
         runes = await get_champion_runes(champion)
         champion_image = await get_champion_image(champion)
@@ -342,7 +349,7 @@ class LeagueOfLegends(commands.Cog):
         await ctx.send(embed=embed, files=files)
 
     @commands.command()
-    async def spell(self, ctx, *, spell_name: str):
+    async def spell(self, ctx: Context, *, spell_name: str) -> None:
         """
         *spell <name>
 
@@ -390,7 +397,7 @@ class LeagueOfLegends(commands.Cog):
 
     @commands.command()
     @commands.cooldown(rate=1, per=5.0, type=commands.BucketType.default)
-    async def summoner(self, ctx, *, summoner_name: str):
+    async def summoner(self, ctx: Context, *, summoner_name: str) -> None:
         """
         *summoner <username>
 
@@ -443,6 +450,6 @@ class LeagueOfLegends(commands.Cog):
             await ctx.send(embed=embed)
 
 
-async def setup(viking):
+async def setup(viking: Viking) -> None:
     lol = LeagueOfLegends(viking)
     await viking.add_cog(lol)

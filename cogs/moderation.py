@@ -1,28 +1,36 @@
+from __future__ import annotations
+
 import asyncio
 import discord
 import logging
 
 from database.command import Hidden
+from discord import PermissionOverwrite
 from discord.ext import commands
+from typing import TYPE_CHECKING
 from utilities.format import format_list
 from utilities.member import MemberInterface
 from utilities.time import timeout
+
+if TYPE_CHECKING:
+    from bot import Viking
+    from discord.ext.commands import Context
 
 
 log = logging.getLogger(__name__)
 
 
 class Moderation(commands.Cog):
-    def __init__(self, viking):
+    def __init__(self, viking: Viking):
         self.viking = viking
 
-    async def chat_restrict(self):
+    async def chat_restrict(self) -> PermissionOverwrite:
         """
         A function that changes Discord permissions to chat restrict
         a member.
         """
 
-        overwrite = discord.PermissionOverwrite()
+        overwrite = PermissionOverwrite()
 
         overwrite.send_messages = False
         overwrite.send_tts_messages = False
@@ -33,7 +41,7 @@ class Moderation(commands.Cog):
     @commands.command(hidden=True)
     @commands.bot_has_guild_permissions(move_members=True)
     @commands.has_guild_permissions(move_members=True)
-    async def afk(self, ctx, identifier):
+    async def afk(self, ctx: Context, identifier: str) -> None:
         """
         *afk <identifier>
 
@@ -54,12 +62,13 @@ class Moderation(commands.Cog):
         except discord.HTTPException:
             await ctx.send(f"{member} could not be moved to Valhalla.")
         else:
-            log.info(f"{ctx.author} moved {member} to Valhalla.")
+            message = f"{ctx.author} moved {member} to Valhalla."
+            log.info(message)
 
     @commands.command(hidden=True)
     @commands.bot_has_guild_permissions(ban_members=True)
     @commands.has_guild_permissions(ban_members=True)
-    async def ban(self, ctx, *, identifier):
+    async def ban(self, ctx: Context, *, identifier: str) -> None:
         """
         *ban <identifier>
 
@@ -79,12 +88,13 @@ class Moderation(commands.Cog):
         except discord.HTTPException:
             await ctx.send(f"{member} could not be banned.")
         else:
-            log.info(f"{ctx.author} banned {member}.")
+            message = f"{ctx.author} banned {member}."
+            log.info(message)
 
     @commands.command(hidden=True)
     @commands.bot_has_guild_permissions(manage_messages=True)
     @commands.has_guild_permissions(manage_messages=True)
-    async def clear(self, ctx, limit: int):
+    async def clear(self, ctx: Context, limit: int) -> None:
         """
         *clear <limit>
 
@@ -98,7 +108,7 @@ class Moderation(commands.Cog):
     @commands.command(hidden=True)
     @commands.bot_has_guild_permissions(mute_members=True)
     @commands.has_guild_permissions(mute_members=True)
-    async def deafen(self, ctx, identifier):
+    async def deafen(self, ctx: Context, identifier: str) -> None:
         """
         *deafen <identifier>
 
@@ -118,12 +128,13 @@ class Moderation(commands.Cog):
         except discord.HTTPException:
             await ctx.send(f"{member} could not be deafened.")
         else:
-            log.info(f"{ctx.author} deafened {member}.")
+            message = f"{ctx.author} deafened {member}."
+            log.info(message)
 
     @commands.command(hidden=True)
     @commands.bot_has_guild_permissions(move_members=True)
     @commands.has_guild_permissions(move_members=True)
-    async def disconnect(self, ctx, identifier):
+    async def disconnect(self, ctx: Context, identifier: str) -> None:
         """
         *disconnect <identifier>
 
@@ -144,10 +155,11 @@ class Moderation(commands.Cog):
         except discord.HTTPException:
             await ctx.send(f"{member} could not be disconnected.")
         else:
-            log.info(f"{ctx.author} disconnected {member}.")
+            message = f"{ctx.author} disconnected {member}."
+            log.info(message)
 
     @commands.command(hidden=True)
-    async def hidden(self, ctx):
+    async def hidden(self, ctx: Context) -> None:
         """
         *hidden
 
@@ -171,7 +183,7 @@ class Moderation(commands.Cog):
     @commands.command(hidden=True)
     @commands.bot_has_guild_permissions(kick_members=True)
     @commands.has_guild_permissions(kick_members=True)
-    async def kick(self, ctx, identifier):
+    async def kick(self, ctx: Context, identifier: str) -> None:
         """
         *kick <identifier>
 
@@ -191,10 +203,11 @@ class Moderation(commands.Cog):
         except discord.HTTPException:
             await ctx.send(f"{member} could not be kicked.")
         else:
-            log.info(f"{ctx.author} kicked {member}.")
+            message = f"{ctx.author} kicked {member}."
+            log.info(message)
 
     @commands.command(hidden=True)
-    async def load(self, ctx, *, extension):
+    async def load(self, ctx: Context, *, extension: str) -> None:
         """
         *load <extension>
 
@@ -213,7 +226,7 @@ class Moderation(commands.Cog):
     @commands.command(hidden=True)
     @commands.bot_has_guild_permissions(mute_members=True)
     @commands.has_guild_permissions(mute_members=True)
-    async def mute(self, ctx, identifier):
+    async def mute(self, ctx: Context, identifier: str) -> None:
         """
         *mute <identifier>
 
@@ -233,12 +246,13 @@ class Moderation(commands.Cog):
         except discord.HTTPException:
             await ctx.send(f"{member} could not be muted.")
         else:
-            log.info(f"{ctx.author} muted {member}.")
+            message = f"{ctx.author} muted {member}."
+            log.info(message)
 
     @commands.command(hidden=True)
     @commands.bot_has_guild_permissions(manage_channels=True)
     @commands.has_guild_permissions(manage_channels=True)
-    async def purge(self, ctx):
+    async def purge(self, ctx: Context) -> None:
         """
         *purge
 
@@ -248,7 +262,7 @@ class Moderation(commands.Cog):
         await ctx.channel.purge()
 
     @commands.command(hidden=True)
-    async def reload(self, ctx, *, extension):
+    async def reload(self, ctx: Context, *, extension: str) -> None:
         """
         *reload <extension>
 
@@ -268,7 +282,7 @@ class Moderation(commands.Cog):
     @commands.command(hidden=True)
     @commands.bot_has_guild_permissions(mute_members=True)
     @commands.has_guild_permissions(mute_members=True)
-    async def restrict(self, ctx, *, identifier):
+    async def restrict(self, ctx: Context, *, identifier: str) -> None:
         """
         *restrict <identifier>
 
@@ -290,12 +304,13 @@ class Moderation(commands.Cog):
         except discord.HTTPException:
             await ctx.send(f"{member} could not be chat-restricted.")
         else:
-            log.info(f"{ctx.author} chat-restricted {member}.")
+            message = f"{ctx.author} chat-restricted {member}."
+            log.info(message)
 
     @commands.command(hidden=True)
     @commands.bot_has_guild_permissions(mute_members=True)
     @commands.has_guild_permissions(mute_members=True)
-    async def softdeafen(self, ctx, seconds: int, *, identifier):
+    async def softdeafen(self, ctx: Context, seconds: int, *, identifier: str) -> None:
         """
         *softdeafen <seconds> <identifier>
 
@@ -318,7 +333,8 @@ class Moderation(commands.Cog):
         except discord.HTTPException:
             await ctx.send(f"{member} could not be soft-deafened.")
         else:
-            log.info(f"{ctx.author} soft-deafened {member}.")
+            message = f"{ctx.author} soft-deafened {member}."
+            log.info(message)
 
             while not self.viking.is_closed():
                 time = timeout(seconds=seconds)
@@ -330,7 +346,7 @@ class Moderation(commands.Cog):
     @commands.command(hidden=True)
     @commands.bot_has_guild_permissions(mute_members=True)
     @commands.has_guild_permissions(mute_members=True)
-    async def softmute(self, ctx, seconds: int, *, identifier):
+    async def softmute(self, ctx: Context, seconds: int, *, identifier: str) -> None:
         """
         *softmute <seconds> <identifier>
 
@@ -353,7 +369,8 @@ class Moderation(commands.Cog):
         except discord.HTTPException:
             await ctx.send(f"{member} could not be soft-muted.")
         else:
-            log.info(f"{ctx.author} soft-muted {member}.")
+            message = f"{ctx.author} soft-muted {member}."
+            log.info(message)
 
             while not self.viking.is_closed():
                 time = timeout(seconds=seconds)
@@ -365,7 +382,13 @@ class Moderation(commands.Cog):
     @commands.command(hidden=True)
     @commands.bot_has_guild_permissions(mute_members=True)
     @commands.has_guild_permissions(mute_members=True)
-    async def softrestrict(self, ctx, seconds: int, *, identifier):
+    async def softrestrict(
+        self,
+        ctx: Context,
+        seconds: int,
+        *,
+        identifier: str
+    ) -> None:
         """
         *softrestrict <seconds> <identifier>
 
@@ -393,7 +416,8 @@ class Moderation(commands.Cog):
         except discord.HTTPException:
             await ctx.send(f"{member} could not be chat-restricted.")
         else:
-            log.info(f"{ctx.author} chat-restricted {member}.")
+            message = f"{ctx.author} chat-restricted {member}."
+            log.info(message)
 
             while not self.viking.is_closed():
                 time = timeout(seconds=seconds)
@@ -407,7 +431,7 @@ class Moderation(commands.Cog):
     @commands.command(hidden=True)
     @commands.bot_has_guild_permissions(ban_members=True)
     @commands.has_guild_permissions(ban_members=True)
-    async def unban(self, ctx, *, identifier):
+    async def unban(self, ctx: Context, *, identifier: str) -> None:
         """
         *unban <identifier>
 
@@ -427,12 +451,13 @@ class Moderation(commands.Cog):
         except discord.HTTPException:
             await ctx.send(f"{member} could not be unbanned.")
         else:
-            log.info(f"{ctx.author} unbanned {member}.")
+            message = f"{ctx.author} unbanned {member}."
+            log.info(message)
 
     @commands.command(hidden=True)
     @commands.bot_has_guild_permissions(mute_members=True)
     @commands.has_guild_permissions(mute_members=True)
-    async def undeafen(self, ctx, identifier):
+    async def undeafen(self, ctx: Context, identifier: str) -> None:
         """
         *undeafen <identifier>
 
@@ -452,10 +477,11 @@ class Moderation(commands.Cog):
         except discord.HTTPException:
             await ctx.send(f"{member} could not be undeafened.")
         else:
-            log.info(f"{ctx.author} undeafened {member}.")
+            message = f"{ctx.author} undeafened {member}."
+            log.info(message)
 
     @commands.command(hidden=True)
-    async def unload(self, ctx, *, extension):
+    async def unload(self, ctx: Context, *, extension: str) -> None:
         """
         *unload <extension>
 
@@ -474,7 +500,7 @@ class Moderation(commands.Cog):
     @commands.command(hidden=True)
     @commands.bot_has_guild_permissions(mute_members=True)
     @commands.has_guild_permissions(mute_members=True)
-    async def unmute(self, ctx, identifier):
+    async def unmute(self, ctx: Context, identifier: str) -> None:
         """
         *unmute <identifier>
 
@@ -494,12 +520,13 @@ class Moderation(commands.Cog):
         except discord.HTTPException:
             await ctx.send(f"{member} could not be unmuted.")
         else:
-            log.info(f"{ctx.author} unmuted {member}.")
+            message = f"{ctx.author} unmuted {member}."
+            log.info(message)
 
     @commands.command(hidden=True)
     @commands.bot_has_guild_permissions(mute_members=True)
     @commands.has_guild_permissions(mute_members=True)
-    async def unrestrict(self, ctx, *, identifier):
+    async def unrestrict(self, ctx: Context, *, identifier: str) -> None:
         """
         *unrestrict <identifier>
 
@@ -520,9 +547,10 @@ class Moderation(commands.Cog):
         except discord.HTTPException:
             await ctx.send(f"{member} could not be unrestricted.")
         else:
-            log.info(f"{ctx.author} unrestricted {member}.")
+            message = f"{ctx.author} unrestricted {member}."
+            log.info(message)
 
 
-async def setup(viking):
+async def setup(viking: Viking) -> None:
     moderation = Moderation(viking)
     await viking.add_cog(moderation)

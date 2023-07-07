@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from gino import Gino
 from model.guild import (
     NACDatabase,
@@ -21,7 +23,7 @@ factory = {
 
 
 class Guild:
-    def get(self, gid):
+    def get(self, gid: str) -> NACDatabase | VikingDatabase:
         guild = factory.get(gid)
 
         if guild is None:
@@ -29,9 +31,9 @@ class Guild:
 
         return guild
 
-    def generate(self, attribute):
+    def generate(self, attribute: str):
         return [
             getattr(factory[key], attribute)
-            for key in factory.keys()
+            for key in factory
             if hasattr(factory[key], attribute)
         ]

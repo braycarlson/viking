@@ -1,10 +1,21 @@
+from __future__ import annotations
+
 from discord.ext import commands
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from discord.ext.commands import Context
 
 
-def is_channel(channel_id):
-    async def predicate(ctx):
-        if (ctx.channel.id != channel_id and
-                ctx.guild is not None and ctx.invoked_with != 'help'):
+def is_channel(channel_id: str) -> bool:
+    async def predicate(ctx: Context) -> bool:
+        condition = (
+            ctx.channel.id != channel_id and
+            ctx.guild is not None and
+            ctx.invoked_with != 'help'
+        )
+
+        if condition:
             await ctx.message.delete(delay=15.0)
 
             channel = ctx.guild.get_channel(channel_id)
@@ -16,7 +27,7 @@ def is_channel(channel_id):
                 f"in the {channel.mention} channel", delete_after=15.0
             )
 
-            setattr(ctx, 'channel', channel)
+            ctx.channel = channel
             await ctx.reinvoke()
 
             return False

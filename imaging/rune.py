@@ -1,4 +1,6 @@
-from abc import abstractmethod, ABC
+from __future__ import annotations
+
+from abc import abstractmethod
 from pathlib import Path
 from PIL import Image
 
@@ -6,7 +8,7 @@ from PIL import Image
 lol = Path(__file__).parent.parent.joinpath('images/lol')
 
 
-class Rune(ABC):
+class Rune():
     def __init__(self):
         self.keystone = None
         self.first = {}
@@ -175,7 +177,7 @@ class Shard(Rune):
 
 
 class RuneFactory:
-    def __new__(self, id):
+    def __new__(self, id: int) -> Rune:
         rune = {
             8000: Precision(),
             8100: Domination(),
@@ -187,7 +189,7 @@ class RuneFactory:
         return rune.get(id)
 
 
-class Grid(ABC):
+class Grid():
     def __init__(self):
         self._x = None
         self._y = None
@@ -199,37 +201,29 @@ class Grid(ABC):
         self.width = None
 
     @property
-    def size(self):
+    def size(self) -> tuple(int, int):
         return (
             (self.row + 1) * self.width + (self.row * self.offset),
             (self.column * self.height) + (self.column * self.offset)
         )
 
     @property
-    def x(self):
+    def x(self) -> int:
         self._x = (self.offset * self.row) // (self.row + 1)
         return self._x
 
-    @x.setter
-    def x(self, x):
-        self._x = x
-
     @property
-    def y(self):
+    def y(self) -> int:
         self._y = (self.offset * self.column) // (self.column + 1)
         return self._y
 
-    @y.setter
-    def y(self, y):
-        self._y = y
-
     @abstractmethod
-    def create(self):
-        pass
+    def create(self) -> None:
+        raise NotImplementedError
 
 
 class Primary(Grid):
-    def __init__(self, id):
+    def __init__(self, id: int):
         self._x = None
         self._y = None
         self.color = (255, 0, 0, 0)

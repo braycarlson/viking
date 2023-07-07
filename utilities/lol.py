@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from database.lol import (
     Ability,
     Champion,
@@ -15,30 +17,52 @@ from model.lol import (
     Summoner
 )
 from rapidfuzz import process
+from typing import TYPE_CHECKING
 from utilities.format import alphabet, format_list
 from utilities.request import fetch
+
+if TYPE_CHECKING:
+    from aiohttp import ClientSession
+    from sqlalchemy.engine.result import RowProxy
+    from typing_extensions import Any
 
 
 BASE = 'https://na1.api.riotgames.com/lol'
 ASSET = 'https://ddragon.leagueoflegends.com'
 
 
-async def get_champion_masteries(session, params, summoner_id: int):
+async def get_champion_masteries(
+    session: ClientSession,
+    params: dict[str, Any],
+    summoner_id: int
+) -> dict[str, Any]:
     url = f"{BASE}/champion-mastery/v4/champion-masteries/by-summoner/{summoner_id}"
     return await fetch(session, url, params=params)
 
 
-async def get_summoner_account(session, params, summoner_name: str):
+async def get_summoner_account(
+    session: ClientSession,
+    params: dict[str, Any],
+    summoner_name: str
+) -> dict[str, Any]:
     url = f"{BASE}/summoner/v4/summoners/by-name/{summoner_name}"
     return await fetch(session, url, params=params)
 
 
-async def get_summoner_leagues(session, params, summoner_id: int):
+async def get_summoner_leagues(
+    session: ClientSession,
+    params: dict[str, Any],
+    summoner_id: int
+) -> dict[str, Any]:
     url = f"{BASE}/league/v4/entries/by-summoner/{summoner_id}"
     return await fetch(session, url, params=params)
 
 
-async def get_active_game(session, params, summoner_name: str):
+async def get_active_game(
+    session: ClientSession,
+    params: dict[str, Any],
+    summoner_name: str
+) -> dict[str, Any]:
     summoner = await get_summoner_account(session, params, summoner_name)
     summoner_id = summoner.get('id')
 
@@ -46,7 +70,7 @@ async def get_active_game(session, params, summoner_name: str):
     return await fetch(session, url, params=params)
 
 
-async def get_champion_version():
+async def get_champion_version() -> float:
     return (
         await Version
         .select('champion')
@@ -56,7 +80,7 @@ async def get_champion_version():
     )
 
 
-async def get_item_version():
+async def get_item_version() -> float:
     return (
         await Version
         .select('item')
@@ -66,7 +90,7 @@ async def get_item_version():
     )
 
 
-async def get_spell_version():
+async def get_spell_version() -> float:
     return (
         await Version
         .select('summoner')
@@ -76,7 +100,7 @@ async def get_spell_version():
     )
 
 
-async def get_champion_skill(champion_id: str):
+async def get_champion_skill(champion_id: str) -> tuple[list[str], list[str]]:
     skill = (
         await OPGGKRARAM
         .select('skills')
@@ -100,7 +124,7 @@ async def get_champion_skill(champion_id: str):
     return (skill, ability)
 
 
-async def get_champion(champion_name: str):
+async def get_champion(champion_name: str) -> str:
     champion_name = alphabet(champion_name)
     champion_name = await search_for_champion(champion_name)
 
@@ -115,7 +139,7 @@ async def get_champion(champion_name: str):
     )
 
 
-async def get_champion_name(champion_id: str):
+async def get_champion_name(champion_id: str) -> str:
     return (
         await Champion
         .select('name')
@@ -127,7 +151,7 @@ async def get_champion_name(champion_id: str):
     )
 
 
-async def get_champion_key(champion_id: str):
+async def get_champion_key(champion_id: str) -> str:
     return (
         await Champion
         .select('key')
@@ -139,7 +163,7 @@ async def get_champion_key(champion_id: str):
     )
 
 
-async def get_champion_id(champion_name: str):
+async def get_champion_id(champion_name: str) -> str:
     champion_name = await search_for_champion(champion_name)
 
     return (
@@ -151,7 +175,7 @@ async def get_champion_id(champion_name: str):
     )
 
 
-async def get_champion_image(champion_name: str):
+async def get_champion_image(champion_name: str) -> str:
     champion_name = await search_for_champion(champion_name)
 
     return (
@@ -163,7 +187,7 @@ async def get_champion_image(champion_name: str):
     )
 
 
-async def get_champion_runes(champion_name: str):
+async def get_champion_runes(champion_name: str) -> list[str]:
     champion_id = await get_champion_id(champion_name)
 
     return (
@@ -175,7 +199,7 @@ async def get_champion_runes(champion_name: str):
     )
 
 
-async def get_champion_items(champion_name: str):
+async def get_champion_items(champion_name: str) -> list[str]:
     champion_id = await get_champion_id(champion_name)
 
     return (
@@ -187,7 +211,7 @@ async def get_champion_items(champion_name: str):
     )
 
 
-async def get_champion_skill_order(champion_name: str):
+async def get_champion_skill_order(champion_name: str) -> list[str]:
     champion_id = await get_champion_id(champion_name)
 
     return (
@@ -199,7 +223,7 @@ async def get_champion_skill_order(champion_name: str):
     )
 
 
-async def get_rune_name(rune_id: str):
+async def get_rune_name(rune_id: str) -> str:
     return (
         await Rune
         .select('name')
@@ -209,7 +233,7 @@ async def get_rune_name(rune_id: str):
     )
 
 
-async def get_item_name(item_id: str):
+async def get_item_name(item_id: str) -> str:
     return (
         await Item
         .select('name')
@@ -219,7 +243,7 @@ async def get_item_name(item_id: str):
     )
 
 
-async def get_core_item_name(item_id: str):
+async def get_core_item_name(item_id: str) -> str:
     return (
         await Item
         .select('name')
@@ -232,17 +256,17 @@ async def get_core_item_name(item_id: str):
     )
 
 
-async def get_champion_names():
+async def get_champion_names() -> list[str]:
     champions = await Champion.select('name').gino.all()
     return [champion.name for champion in champions]
 
 
-async def get_spell_names():
+async def get_spell_names() -> list[str]:
     spells = await Spell.select('name').gino.all()
     return [spell.name for spell in spells]
 
 
-async def get_champion_statistics(champion_name: str):
+async def get_champion_statistics(champion_name: str) -> RowProxy:
     return (
         await Champion
         .query
@@ -252,7 +276,7 @@ async def get_champion_statistics(champion_name: str):
     )
 
 
-async def get_spell_statistics(spell_name: str):
+async def get_spell_statistics(spell_name: str) -> RowProxy:
     return (
         await Spell
         .query
@@ -262,7 +286,7 @@ async def get_spell_statistics(spell_name: str):
     )
 
 
-async def search_for_champion(champion_name: str):
+async def search_for_champion(champion_name: str) -> str:
     champion_names = await get_champion_names()
 
     match, score, _ = process.extractOne(
@@ -273,7 +297,7 @@ async def search_for_champion(champion_name: str):
     return match
 
 
-async def search_for_spell(spell_name: str):
+async def search_for_spell(spell_name: str) -> str:
     spell_names = await get_spell_names()
 
     match, score, _ = process.extractOne(
@@ -284,7 +308,7 @@ async def search_for_spell(spell_name: str):
     return match
 
 
-async def get_placement(leagues):
+async def get_placement(leagues: dict[str, Any]) -> str:
     placement = ''
 
     display = {
@@ -311,7 +335,11 @@ async def get_placement(leagues):
     return placement
 
 
-async def get_mastery(session, params, summoner_id):
+async def get_mastery(
+    session: ClientSession,
+    params: dict[str, Any],
+    summoner_id: str
+) -> str:
     get_masteries = await get_champion_masteries(
         session,
         params,

@@ -6,9 +6,12 @@ paramiko
 pillow
 pipdeptree
 pip-upgrader
+pycares
 python-dateutil
 rapidfuzz
 tabulate
+typing-extensions
 uvloop; sys_platform == 'linux'
+wheel; sys_platform == 'linux'
 
 git+https://github.com/Rapptz/discord.py#egg=discord.py[voice]

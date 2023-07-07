@@ -1,16 +1,23 @@
+from __future__ import annotations
+
 import discord
 
-from datetime import datetime
+from datetime import datetime, timezone
+from typing import TYPE_CHECKING
 from utilities.member import DiscordMember
+
+if TYPE_CHECKING:
+    from bot import Viking
+    from discord import Member, Role
 
 
 class MemberEvent:
-    def __init__(self, viking):
+    def __init__(self, viking: Viking):
         self.viking = viking
 
     # Member Checks
 
-    async def is_member_banned(self, member):
+    async def is_member_banned(self, member: str) -> None:
         condition = (
             (self.viking.guild.member.discord_id == member) &
             (self.viking.guild.member.banned_at.is_(None))
@@ -24,7 +31,7 @@ class MemberEvent:
             .first()
         )
 
-    async def is_member_removed(self, member):
+    async def is_member_removed(self, member: str) -> None:
         condition = (
             (self.viking.guild.member.discord_id == member) &
             (self.viking.guild.member.removed_at.is_(None))
@@ -40,11 +47,10 @@ class MemberEvent:
 
     # Member Events
 
-    async def member_create(self, member):
+    async def member_create(self, member: Member) -> None:
         await self.viking.guild.member.create(
             discord_id=member.id,
             name=member.name,
-            discriminator=member.discriminator,
             display_name=member.display_name,
             nickname=member.nick,
             role_id=None,
@@ -53,8 +59,8 @@ class MemberEvent:
             joined_at=member.joined_at
         )
 
-    async def member_ban(self, member):
-        banned_at = datetime.now()
+    async def member_ban(self, member: str) -> None:
+        banned_at = datetime.now(timezone.utc)
 
         (
             await self.viking.guild.member
@@ -65,7 +71,7 @@ class MemberEvent:
             .status()
         )
 
-    async def member_unban(self, member):
+    async def member_unban(self, member: str) -> None:
         banned_at = None
 
         (
@@ -77,8 +83,8 @@ class MemberEvent:
             .status()
         )
 
-    async def member_remove(self, member):
-        removed_at = datetime.now()
+    async def member_remove(self, member: str) -> None:
+        removed_at = datetime.now(timezone.utc)
 
         (
             await self.viking.guild.member
@@ -89,7 +95,7 @@ class MemberEvent:
             .status()
         )
 
-    async def member_restore(self, member):
+    async def member_restore(self, member: str) -> None:
         removed_at = None
 
         (
@@ -105,11 +111,11 @@ class MemberEvent:
     # Member Attributes
 
     # The 'update' functions will be called when a member updates their
-    # name, discriminator or nickname for the first time in the server.
+    # name or nickname for the first time in the server.
     # This will just update their attributes.
 
-    async def name_update(self, before, after):
-        now = datetime.now()
+    async def name_update(self, _: Member, after: Member) -> None:
+        now = datetime.now(timezone.utc)
 
         (
             await self.viking.guild.member
@@ -124,23 +130,8 @@ class MemberEvent:
             .status()
         )
 
-    async def discriminator_update(self, before, after):
-        now = datetime.now()
-
-        (
-            await self.viking.guild.member
-            .update
-            .values(
-                discriminator=after.discriminator,
-                updated_at=now
-            )
-            .where(self.viking.guild.member.discord_id == after.id)
-            .gino
-            .status()
-        )
-
-    async def nickname_update(self, before, after):
-        now = datetime.now()
+    async def nickname_update(self, _: Member, after: Member) -> None:
+        now = datetime.now(timezone.utc)
 
         (
             await self.viking.guild.member
@@ -155,8 +146,8 @@ class MemberEvent:
             .status()
         )
 
-    async def member_role_update(self, before, after):
-        updated_at = datetime.now()
+    async def member_role_update(self, _: Member, after: Member) -> None:
+        updated_at = datetime.now(timezone.utc)
 
         (
             await self.viking.guild.member
@@ -171,11 +162,11 @@ class MemberEvent:
         )
 
     # The 'append' functions will be called when a member updates their
-    # name, discriminator or nickname more than once in the server. This
+    # name or nickname more than once in the server. This
     # will store their old attributes in an array.
 
-    async def name_append(self, before, after):
-        now = datetime.now()
+    async def name_append(self, before: Member, after: Member) -> None:
+        now = datetime.now(timezone.utc)
 
         (
             await self.viking.guild.member
@@ -194,27 +185,8 @@ class MemberEvent:
             .status()
         )
 
-    async def discriminator_append(self, before, after):
-        now = datetime.now()
-
-        (
-            await self.viking.guild.member
-            .update
-            .values(
-                discriminator=after.discriminator,
-                previous_discriminator=self.viking.guild.engine.func.array_prepend(
-                    before.discriminator,
-                    self.viking.guild.member.previous_discriminator
-                ),
-                updated_at=now
-            )
-            .where(self.viking.guild.member.discord_id == after.id)
-            .gino
-            .status()
-        )
-
-    async def nickname_append(self, before, after):
-        now = datetime.now()
+    async def nickname_append(self, before: Member, after: Member) -> None:
+        now = datetime.now(timezone.utc)
 
         (
             await self.viking.guild.member
@@ -238,11 +210,10 @@ class MemberEvent:
     # kicked. If the member rejoins the server, their database record
     # will be updated and/or appended to.
 
-    async def get_old_record(self, member):
+    async def get_old_record(self, member: str):
         row = (
             await self.viking.guild.member.select(
                 'name',
-                'discriminator',
                 'nickname',
                 'removed_at',
                 'banned_at'
@@ -254,7 +225,7 @@ class MemberEvent:
 
         return dict(row)
 
-    async def old_name_update(self, member, name):
+    async def old_name_update(self, member: Member, name: str) -> None:
         if name != member.name:
             (
                 await self.viking.guild.member
@@ -270,22 +241,7 @@ class MemberEvent:
                 .status()
             )
 
-    async def old_discriminator_update(self, member, discriminator):
-        if discriminator != member.discriminator:
-            (
-                await self.viking.guild.member
-                .update
-                .values(
-                    previous_discriminator=self.viking.guild.engine.func.array_prepend(
-                        discriminator,
-                        self.viking.guild.member.previous_discriminator
-                    ),
-                ).where(self.viking.guild.member.discord_id == member.id)
-                .gino
-                .status()
-            )
-
-    async def old_nickname_update(self, member, nickname):
+    async def old_nickname_update(self, member: Member, nickname: str) -> None:
         if nickname != member.nick:
             (
                 await self.viking.guild.member
@@ -301,13 +257,12 @@ class MemberEvent:
                 .status()
             )
 
-    async def member_update(self, member):
-        joined_at, updated_at = datetime.now(), datetime.now()
+    async def member_update(self, member: Member) -> None:
+        joined_at, updated_at = datetime.now(timezone.utc), datetime.now(timezone.utc)
         row = await self.get_old_record(member.id)
         old = DiscordMember(row)
 
         await self.old_name_update(member, old.name)
-        await self.old_discriminator_update(member, old.discriminator)
         await self.old_nickname_update(member, old.nickname)
 
         (
@@ -315,7 +270,6 @@ class MemberEvent:
             .update
             .values(
                 name=member.name,
-                discriminator=member.discriminator,
                 display_name=member.display_name,
                 nickname=member.nick,
                 role_id=None,
@@ -331,10 +285,10 @@ class MemberEvent:
 
 
 class RoleEvent:
-    def __init__(self, viking):
+    def __init__(self, viking: Viking):
         self.viking = viking
 
-    async def role_create(self, role):
+    async def role_create(self, role: Role) -> None:
         await self.viking.guild.role.create(
             id=role.id,
             name=role.name,
@@ -347,7 +301,7 @@ class RoleEvent:
             created_at=role.created_at
         )
 
-    async def role_add(self):
+    async def role_add(self) -> None:
         rows = (
             await self.viking.guild.member
             .select('discord_id')
@@ -365,7 +319,7 @@ class RoleEvent:
             member = guild.get_member(discord_id)
             await member.add_roles(role)
 
-    async def role_update(self, role):
+    async def role_update(self, role: Role) -> None:
         (
             await self.viking.guild.role
             .update
@@ -385,7 +339,7 @@ class RoleEvent:
             .status()
         )
 
-    async def role_delete(self, role_id):
+    async def role_delete(self, role_id: str) -> None:
         (
             await self.viking.guild.role
             .delete
@@ -394,8 +348,8 @@ class RoleEvent:
             .status()
         )
 
-    async def role_replace(self, after):
-        updated_at = datetime.now()
+    async def role_replace(self, after: Role) -> None:
+        updated_at = datetime.now(timezone.utc)
 
         for guild in self.viking.guilds:
             for member in guild.members:

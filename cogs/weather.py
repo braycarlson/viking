@@ -1,19 +1,26 @@
+from __future__ import annotations
+
 import discord
 
 from discord.ext import commands
 from model.weather import Forecast
+from typing import TYPE_CHECKING
 from utilities.request import RequestError, fetch
+
+if TYPE_CHECKING:
+    from bot import Viking
+    from discord.ext.commands import Context
 
 
 class Weather(commands.Cog):
-    def __init__(self, viking):
+    def __init__(self, viking: Viking):
         self.viking = viking
         self.owm_api_key = viking.owm_api_key
         self.owm_api_url = viking.owm_api_url
 
     @commands.command()
     @commands.cooldown(rate=60, per=60.0, type=commands.BucketType.default)
-    async def forecast(self, ctx, *, location: str):
+    async def forecast(self, ctx: Context, *, location: str) -> None:
         """
         *forecast <location>
 
@@ -94,6 +101,6 @@ class Weather(commands.Cog):
             await ctx.send(embed=embed)
 
 
-async def setup(viking):
+async def setup(viking: Viking) -> None:
     weather = Weather(viking)
     await viking.add_cog(weather)

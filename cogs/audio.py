@@ -1,27 +1,35 @@
+from __future__ import annotations
+
 import asyncio
+import contextlib
 import discord
 import logging
 import os
 import sys
 
 from async_timeout import timeout
-from datetime import datetime
+from datetime import datetime, timezone
 from discord.ext import commands
 from pages.audio import MySoundsPages, SoundPages
 from pathlib import Path
-from random import choice
 from rapidfuzz import process
 from sqlalchemy.dialects.postgresql import insert
+from typing import TYPE_CHECKING
 from utilities.format import alphanumerical
 from utilities.member import MemberInterface
 from utilities.request import download
+
+if TYPE_CHECKING:
+    from bot import Viking
+    from discord import Guild, Message
+    from discord.ext.commands import Context
 
 
 log = logging.getLogger(__name__)
 
 
 class Player:
-    def __init__(self, ctx):
+    def __init__(self, ctx: Context):
         self.viking = ctx.bot
         self.cog = ctx.cog
         self.guild = ctx.guild
@@ -33,8 +41,10 @@ class Player:
             self.player_loop()
         )
 
-    async def player_loop(self):
+    async def player_loop(self) -> None:
         await self.viking.wait_until_ready()
+
+        source = None
 
         while not self.viking.is_closed():
             self.event.clear()
@@ -54,16 +64,19 @@ class Player:
 
             await self.event.wait()
 
-        source.cleanup()
+        if source is not None:
+            source.cleanup()
 
-    def destroy(self, guild):
+        return source
+
+    def destroy(self, guild: Guild) -> None:
         return self.viking.loop.create_task(
             self.cog.cleanup(guild)
         )
 
 
 class Audio(commands.Cog):
-    def __init__(self, viking):
+    def __init__(self, viking: Viking):
         self.viking = viking
         self.player = {}
         self.root = viking.root
@@ -71,13 +84,13 @@ class Audio(commands.Cog):
         self.member = self.root.joinpath('sound/member')
 
     @property
-    def executable(self):
+    def executable(self) -> Path:
         if sys.platform == 'linux':
             return Path('/usr/bin/ffmpeg')
-        else:
-            return Path('C:/Program Files/ffmpeg/bin/ffmpeg.exe')
 
-    def get_player(self, ctx):
+        return Path('C:/Program Files/ffmpeg/bin/ffmpeg.exe')
+
+    def get_player(self, ctx: Context) -> Player:
         try:
             player = self.player[ctx.guild.id]
         except KeyError:
@@ -86,21 +99,25 @@ class Audio(commands.Cog):
 
         return player
 
-    def get_soundbank(self):
+    def get_soundbank(self) -> list[Path]:
         return self.ls(self.default) + self.ls(self.member)
 
-    def ls(self, directory):
-        file = [path for path in directory.iterdir()]
-        return file
+    def ls(self, directory: Path | str) -> list[Path]:
+        return [
+            path
+            for path in directory.iterdir()
+        ]
 
-    async def get_file(self, query):
+    async def get_file(self, query: str) -> Path | None:
         soundbank = self.get_soundbank()
 
         for sound in soundbank:
             if query == sound.stem:
                 return sound
 
-    async def search_for_sound(self, query):
+        return None
+
+    async def search_for_sound(self, query: str) -> Path | None:
         soundbank = self.get_soundbank()
 
         for sound in soundbank:
@@ -116,30 +133,20 @@ class Audio(commands.Cog):
         )
 
         if match:
-            if len(match) == 2:
-                filename, _ = match
-
-            if len(match) == 3:
-                filename, _, _ = match
-
-            path = sound.get(filename)
-            return path
+            filename, *_ = match
+            return sound.get(filename)
 
         return None
 
-    async def cleanup(self, guild):
-        try:
+    async def cleanup(self, guild: Guild) -> None:
+        with contextlib.suppress(AttributeError):
             await guild.voice_client.disconnect()
-        except AttributeError:
-            pass
 
-        try:
+        with contextlib.suppress(KeyError):
             del self.player[guild.id]
-        except KeyError:
-            pass
 
     @commands.command()
-    async def add(self, ctx, *, name=None):
+    async def add(self, ctx: Context, *, name: str = None) -> Message:
         """
         *add <filename>
 
@@ -176,28 +183,28 @@ class Audio(commands.Cog):
 
                 if member.exists() or default.exists():
                     return await ctx.send(f"'{name}' already exists. Please use another filename.")
-                else:
-                    await download(self.viking.session, attachment.url, member)
 
-                    date = datetime.now()
+                await download(self.viking.session, attachment.url, member)
 
-                    await self.viking.guild.sound.create(
-                        name=name,
-                        created_by=ctx.author.id,
-                        created_at=date
-                    )
+                date = datetime.now(timezone.utc)
 
-                    await ctx.send(f'Command was successfully added. Please use: ***play {name}**')
-            else:
-                return await ctx.send(f"{extension} is not a supported filetype.")
+                await self.viking.guild.sound.create(
+                    name=name,
+                    created_by=ctx.author.id,
+                    created_at=date
+                )
+
+                await ctx.send(f'Command was successfully added. Please use: ***play {name}**')
+
+            return await ctx.send(f"{extension} is not a supported filetype.")
+
+        return None
 
     @commands.command()
-    async def connect(self, ctx, *, channel=None):
+    async def connect(self, ctx: Context, *, channel = None) -> None:
         if not channel:
-            try:
+            with contextlib.suppress(AttributeError):
                 channel = ctx.author.voice.channel
-            except AttributeError:
-                pass
 
         if ctx.voice_client:
             if ctx.voice_client.channel.id == channel.id:
@@ -211,13 +218,11 @@ class Audio(commands.Cog):
 
             await ctx.voice_client.disconnect()
 
-        try:
+        with contextlib.suppress(asyncio.TimeoutError):
             await channel.connect()
-        except asyncio.TimeoutError:
-            pass
 
     @commands.command()
-    async def delete(self, ctx, query):
+    async def delete(self, ctx: Context, query: str) -> Message:
         """
         *delete <sound>
 
@@ -249,10 +254,10 @@ class Audio(commands.Cog):
         )
 
         message = f"**{query}** was successfully deleted."
-        await ctx.send(message)
+        return await ctx.send(message)
 
     @commands.command()
-    async def mysounds(self, ctx):
+    async def mysounds(self, ctx: Context) -> None:
         """
         *mysounds
 
@@ -267,17 +272,26 @@ class Audio(commands.Cog):
             .all()
         )
 
-        sounds = sorted([dict(row).get('name') for row in rows])
-        sound = [sounds[i:i + 75] for i in range(0, len(sounds), 75)]
+        sounds = sorted(
+            [
+                dict(row).get('name')
+                for row in rows
+            ]
+        )
+
+        sound = [
+            sounds[i:i + 75]
+            for i in range(0, len(sounds), 75)
+        ]
 
         try:
             pages = MySoundsPages(ctx, ctx.author.display_name, sound)
             await pages.paginate()
-        except Exception:
-            pass
+        except Exception as exception:
+            log.info(exception)
 
     @commands.command()
-    async def play(self, ctx, *, query):
+    async def play(self, ctx: Context, *, query: str) -> Message | None:
         """
         *play <sound>
 
@@ -286,7 +300,7 @@ class Audio(commands.Cog):
 
         if query == 'random':
             soundbank = self.get_soundbank()
-            sound = choice(soundbank)
+            sound = self.viking.random.choice(soundbank)
         else:
             sound = await self.search_for_sound(query)
 
@@ -308,8 +322,10 @@ class Audio(commands.Cog):
         player = self.get_player(ctx)
         await player.queue.put(source)
 
+        return None
+
     @commands.command()
-    async def pause(self, ctx):
+    async def pause(self, ctx: Context) -> None:
         """
         *pause
 
@@ -325,7 +341,7 @@ class Audio(commands.Cog):
         ctx.voice_client.pause()
 
     @commands.command()
-    async def rename(self, ctx, before, after):
+    async def rename(self, ctx: Context, before: str, after: str) -> Message:
         """
         *rename <before> <after>
 
@@ -351,7 +367,7 @@ class Audio(commands.Cog):
         os.rename(before, after)
 
         id, created_by = row
-        updated_at = datetime.now()
+        updated_at = datetime.now(timezone.utc)
 
         statement = (
             insert(self.viking.guild.sound)
@@ -367,22 +383,22 @@ class Audio(commands.Cog):
             await statement
             .on_conflict_do_update(
                 index_elements=[self.viking.guild.sound.id],
-                set_=dict(
-                    id=statement.excluded.id,
-                    name=statement.excluded.name,
-                    created_by=statement.excluded.created_by,
-                    updated_at=statement.excluded.updated_at
-                )
+                set_={
+                    'id': statement.excluded.id,
+                    'name': statement.excluded.name,
+                    'created_by': statement.excluded.created_by,
+                    'updated_at': statement.excluded.updated_at
+                }
             )
             .gino
             .scalar()
         )
 
         message = f"{before} was successfully renamed to **{after}**."
-        await ctx.send(message)
+        return await ctx.send(message)
 
     @commands.command()
-    async def resume(self, ctx):
+    async def resume(self, ctx: Context) -> None:
         """
         *resume
 
@@ -398,7 +414,7 @@ class Audio(commands.Cog):
         ctx.voice_client.resume()
 
     @commands.command()
-    async def skip(self, ctx):
+    async def skip(self, ctx: Context) -> None:
         """
         *skip
 
@@ -418,7 +434,7 @@ class Audio(commands.Cog):
         ctx.voice_client.stop()
 
     @commands.command()
-    async def stop(self, ctx):
+    async def stop(self, ctx: Context) -> None:
         """
         *stop
 
@@ -432,7 +448,7 @@ class Audio(commands.Cog):
         await self.cleanup(ctx.guild)
 
     @commands.command()
-    async def soundsfrom(self, ctx, *, identifier):
+    async def soundsfrom(self, ctx: Context, *, identifier: str) -> Message | None:
         """
         *soundsfrom <identifier>
 
@@ -444,7 +460,7 @@ class Audio(commands.Cog):
         discord_id = await interface.get()
 
         if discord_id is None:
-            return
+            return None
 
         row = dict(
             await self.viking.guild.member
@@ -474,11 +490,11 @@ class Audio(commands.Cog):
         try:
             pages = MySoundsPages(ctx, display_name, sound)
             await pages.paginate()
-        except Exception:
-            pass
+        except Exception as exception:
+            log.info(exception)
 
     @commands.command(aliases=['sound', 'sounds'])
-    async def soundbank(self, ctx):
+    async def soundbank(self, ctx: Context) -> None:
         """
         *soundbank
 
@@ -492,12 +508,12 @@ class Audio(commands.Cog):
         try:
             pages = SoundPages(ctx, sound)
             await pages.paginate()
-        except Exception:
-            pass
+        except Exception as exception:
+            log.info(exception)
         finally:
             await ctx.message.delete()
 
 
-async def setup(viking):
+async def setup(viking: Viking) -> None:
     audio = Audio(viking)
     await viking.add_cog(audio)

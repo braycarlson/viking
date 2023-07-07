@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from dataclasses import dataclass
 from utilities.format import format_utc
 
@@ -36,25 +38,25 @@ class Forecast:
             self.description = condition.get('description').title()
 
     @property
-    def fahrenheit(self):
-        return (self.temperature * 9/5) + 32
+    def fahrenheit(self) -> float:
+        return (self.temperature * 9 / 5) + 32
 
     @property
-    def low_fahrenheit(self):
-        return (self.low_temperature * 9/5) + 32
+    def low_fahrenheit(self) -> float:
+        return (self.low_temperature * 9 / 5) + 32
 
     @property
-    def high_fahrenheit(self):
-        return (self.high_temperature * 9/5) + 32
+    def high_fahrenheit(self) -> float:
+        return (self.high_temperature * 9 / 5) + 32
 
     @property
-    def kmh_wind(self):
+    def kmh_wind(self) -> float:
         return self.wind * 3600 / 1000
 
     @property
-    def mph_wind(self):
+    def mph_wind(self) -> float:
         return self.wind / 0.44704
 
     @property
-    def date(self):
+    def date(self) -> str:
         return format_utc(self.observed)

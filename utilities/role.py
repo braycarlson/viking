@@ -1,15 +1,20 @@
+from __future__ import annotations
+
 from model.role import DiscordRoleError
 from sqlalchemy import func
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from cogs.roles import Roles
+    from sqlalchemy.engine.result import RowProxy
 
 
-async def check_for_role(self, name):
-    """
-    A function to check for the existence of a role.
-    """
+async def check_for_role(self: Roles, name: str) -> RowProxy:
+    """A function to check for the existence of a role."""
 
     name = name.lower()
 
-    role = (
+    return (
         await self.viking.guild.role
         .query
         .where(func.lower(self.viking.guild.role.name) == name)
@@ -17,13 +22,8 @@ async def check_for_role(self, name):
         .scalar()
     )
 
-    return role
-
-
-async def get_role_by_id(self, identifier):
-    """
-    A function to get a role by ID from the database.
-    """
+async def get_role_by_id(self: Roles, identifier: int | str) -> str:
+    """A function to get a role by ID from the database."""
 
     try:
         role_id = int(identifier)
@@ -45,10 +45,8 @@ async def get_role_by_id(self, identifier):
         return row
 
 
-async def get_role_by_name(self, role_name):
-    """
-    A function to get a role by name from the database.
-    """
+async def get_role_by_name(self: Roles, role_name: str) -> RowProxy:
+    """A function to get a role by name from the database."""
 
     row = (
         await self.viking.guild.role

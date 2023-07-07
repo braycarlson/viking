@@ -1,17 +1,24 @@
+from __future__ import annotations
+
 import logging
 
 from discord.ext import commands
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from bot import Viking
+    from discord.ext.commands import Context
 
 
 log = logging.getLogger(__name__)
 
 
 class Discord(commands.Cog):
-    def __init__(self, viking):
+    def __init__(self, viking: Viking):
         self.viking = viking
 
     @commands.command()
-    async def invite(self, ctx):
+    async def invite(self, ctx: Context) -> None:
         """
         *invite
 
@@ -22,7 +29,7 @@ class Discord(commands.Cog):
         await ctx.send(await ctx.message.channel.create_invite())
 
     @commands.command()
-    async def members(self, ctx):
+    async def members(self, ctx: Context) -> None:
         """
         *members
 
@@ -42,7 +49,7 @@ class Discord(commands.Cog):
         await ctx.send(f"There are {count} members in this server")
 
     @commands.command()
-    async def nicknames(self, ctx):
+    async def nicknames(self, ctx: Context) -> None:
         """
         *nicknames
 
@@ -62,7 +69,7 @@ class Discord(commands.Cog):
         await ctx.send(f"There are {count} members with nicknames")
 
     @commands.command()
-    async def owner(self, ctx):
+    async def owner(self, ctx: Context) -> None:
         """
         *owner
 
@@ -73,7 +80,7 @@ class Discord(commands.Cog):
 
     @commands.command()
     @commands.cooldown(rate=1, per=30.0, type=commands.BucketType.default)
-    async def ping(self, ctx):
+    async def ping(self, ctx: Context) -> None:
         """
         *ping
 
@@ -83,6 +90,6 @@ class Discord(commands.Cog):
         await ctx.send(f"Ping: {self.viking.latency * 1000:.0f} ms")
 
 
-async def setup(viking):
+async def setup(viking: Viking) -> None:
     discord = Discord(viking)
     await viking.add_cog(discord)

@@ -1,43 +1,68 @@
+from __future__ import annotations
+
 import asyncio
 import discord
 
+from typing import TYPE_CHECKING
+import contextlib
+
+if TYPE_CHECKING:
+    from discord import Embed, RawReactionActionEvent
+    from discord.ext.commands import Context
+
 
 class Pages:
-    def __init__(self, ctx, *, entries, per_page=1):
+    def __init__(
+        self,
+        ctx: Context, *,
+        entries: list[str],
+        per_page: int = 1
+    ):
         self.bot = ctx.bot
         self.entries = entries
         self.message = ctx.message
         self.channel = ctx.channel
         self.author = ctx.author
         self.per_page = per_page
+
         pages, extra = divmod(len(self.entries), self.per_page)
+
         if extra:
             pages = pages + 1
+
         self.maximum_pages = pages
         self.embed = discord.Embed(colour=discord.Colour.purple())
         self.paginating = len(entries) > per_page
+
         self.reactions = [
             ('\N{BLACK LEFT-POINTING TRIANGLE}', self.previous_page),
             ('\N{BLACK SQUARE FOR STOP}', self.stop_pages),
             ('\N{BLACK RIGHT-POINTING TRIANGLE}', self.next_page),
         ]
 
-    def get_page(self, page):
+    def get_page(self, page: int) -> list[str]:
         base = (page - 1) * self.per_page
         return self.entries[base:base + self.per_page]
 
-    def get_content(self, entries, page, *, first=False):
+    def get_content(
+        self,
+        entries: list[str],
+        pages: int,
+        *,
+        first: bool = False
+    ) -> None:
         return None
 
-    def get_embed(self, entries, page, *, first=False):
+    def get_embed(self, entries: list[str], page: int, *, first: bool = False) -> Embed:
         self.prepare_embed(entries, page, first=first)
         return self.embed
 
-    def prepare_embed(self, entries, page, *, first=False):
+    def prepare_embed(self, entries, page: int, *, first: bool = False):
         pass
 
-    async def show_page(self, page, *, first=False):
+    async def show_page(self, page: int, *, first: bool = False) -> None:
         self.current_page = page
+
         entries = self.get_page(page)
         content = self.get_content(entries, page, first=first)
         embed = self.get_embed(entries, page, first=first)
@@ -47,32 +72,34 @@ class Pages:
 
         if not first:
             await self.message.edit(content=content, embed=embed)
-            return
+            return None
 
         self.message = await self.channel.send(content=content, embed=embed)
 
         for (reaction, _) in self.reactions:
             await self.message.add_reaction(reaction)
 
-    async def checked_show_page(self, page):
+        return None
+
+    async def checked_show_page(self, page: int) -> None:
         if page != 0 and page <= self.maximum_pages:
             await self.show_page(page)
 
-    async def next_page(self):
+    async def next_page(self) -> None:
         await self.checked_show_page(self.current_page + 1)
 
-    async def previous_page(self):
+    async def previous_page(self) -> None:
         await self.checked_show_page(self.current_page - 1)
 
-    async def show_current_page(self):
+    async def show_current_page(self) -> None:
         if self.paginating:
             await self.show_page(self.current_page)
 
-    async def stop_pages(self):
+    async def stop_pages(self) -> None:
         await self.message.delete()
         self.paginating = False
 
-    def react_check(self, payload):
+    def react_check(self, payload: RawReactionActionEvent) -> bool:
         if payload.user_id != self.author.id:
             return False
 
@@ -88,7 +115,7 @@ class Pages:
 
         return False
 
-    async def paginate(self):
+    async def paginate(self) -> None:
         first_page = self.show_page(1, first=True)
 
         if not self.paginating:
@@ -108,17 +135,15 @@ class Pages:
 
                 try:
                     await self.message.clear_reactions()
-                except Exception:
+                except Exception as exception:
                     pass
                 finally:
                     break
 
-            try:
+            with contextlib.suppress(Exception):
                 await self.message.remove_reaction(
                     payload.emoji,
                     discord.Object(id=payload.user_id)
                 )
-            except Exception:
-                pass
 
             await self.match()

@@ -1,0 +1,105 @@
+[project]
+name = "viking"
+description = "A Discord bot"
+version = "1.0"
+authors = [
+    { name = "Brayden Carlson", email = "braycarlson@hotmail.com" }
+]
+
+[tool.ruff]
+# Enable pycodestyle (`E`) and Pyflakes (`F`) codes by default.
+select = ["ALL"]
+
+ignore = [
+    "A003",
+    # "ANN002",
+    # "ANN003",
+    "ANN101",
+    "ANN204",
+    # "C901",
+    "COM812",
+    # "BLE001",
+    # "B905",
+    "D202",
+    "D205",
+    "D212",
+    "D213",
+    "D400",
+    "D406",
+    "D407",
+    "D415",
+    # "G004",
+    "I001",
+    # "INP001",
+    # "PLR0915",
+    "Q000",
+    # "SLF001",
+    # "T201",
+
+    # # Unsure
+    # "PTH123",
+    # "FBT001",
+    # "FBT002",
+    # "FBT003",
+    # "UP015",
+    # "UP035",
+
+    # # Temporary
+    # "ANN401",
+    # "D100",
+    "D101",
+    "D102",
+    "D103",
+    "D105",
+    "D107",
+    "D401",
+    "D417",
+    # "ERA001",
+    # "PLR0913",
+    # "PLR2004",
+    # "PLW2901",
+    # "S301"
+]
+
+# Allow autofix for all enabled rules (when `--fix`) is provided.
+fixable = ["A", "B", "C", "D", "E", "F", "G", "I", "N", "Q", "S", "T", "W", "ANN", "ARG", "BLE", "COM", "DJ", "DTZ", "EM", "ERA", "EXE", "FBT", "ICN", "INP", "ISC", "NPY", "PD", "PGH", "PIE", "PL", "PT", "PTH", "PYI", "RET", "RSE", "RUF", "SIM", "SLF", "TCH", "TID", "TRY", "UP", "YTT"]
+unfixable = []
+
+# Exclude a variety of commonly ignored directories.
+exclude = [
+    ".bzr",
+    ".direnv",
+    ".eggs",
+    ".git",
+    ".hg",
+    ".mypy_cache",
+    ".nox",
+    ".pants.d",
+    ".pytype",
+    ".ruff_cache",
+    ".svn",
+    ".tox",
+    ".venv",
+    "__pypackages__",
+    "_build",
+    "buck-out",
+    "build",
+    "dist",
+    "node_modules",
+    "venv",
+]
+
+per-file-ignores = {}
+
+# Same as Black.
+line-length = 88
+
+# Allow unused variables when underscore-prefixed.
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+
+# Assume Python 3.10.
+target-version = "py310"
+
+[tool.ruff.mccabe]
+# Unlike Flake8, default to a complexity level of 10.
+max-complexity = 10

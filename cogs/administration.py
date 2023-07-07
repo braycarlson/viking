@@ -1,8 +1,10 @@
+from __future__ import annotations
+
 import database.engine
 import logging
 import paramiko
 
-from bot import configuration
+from bot import configuration, Viking
 from discord.ext import commands
 from pathlib import Path
 
@@ -11,14 +13,14 @@ log = logging.getLogger(__name__)
 
 
 class Administration(commands.Cog):
-    def __init__(self, viking):
+    def __init__(self, viking: Viking):
         self.viking = viking
         self.logs = viking.logs
         self.root = viking.root
 
     @commands.command(hidden=True)
     @commands.is_owner()
-    async def kill(self, ctx):
+    async def kill(self, ctx: commands.Context) -> None:
         """
         *kill
 
@@ -43,7 +45,7 @@ class Administration(commands.Cog):
 
     @commands.command(hidden=True)
     @commands.is_owner()
-    async def restart(self, ctx):
+    async def restart(self, ctx: commands.Context) -> None:
         """
         *restart
 
@@ -81,7 +83,7 @@ class Administration(commands.Cog):
 
     @commands.command(hidden=True)
     @commands.is_owner()
-    async def wake(self, ctx):
+    async def wake(self, ctx: commands.Context) -> None:
         """
         *wake
 
@@ -109,7 +111,7 @@ class Administration(commands.Cog):
 
     @commands.command(hidden=True)
     @commands.is_owner()
-    async def wipe(self, ctx):
+    async def wipe(self, ctx: commands.Context) -> None:
         """
         *wipe
 
@@ -128,6 +130,6 @@ class Administration(commands.Cog):
             file.open('w', encoding='utf-8').close()
 
 
-async def setup(viking):
+async def setup(viking: Viking) -> None:
     administration = Administration(viking)
     await viking.add_cog(administration)

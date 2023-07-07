@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from database.base import Member, Role, Sound
 from database.engine import nac, nd
 

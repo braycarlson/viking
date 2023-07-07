@@ -1,12 +1,12 @@
-from datetime import datetime, timedelta
+from __future__ import annotations
+
+from datetime import datetime, timedelta, timezone
 
 
-def run_at(hour=0, minute=0, second=0):
-    """
-    A function that returns the seconds until a specified time.
-    """
+def run_at(hour: int = 0, minute: int = 0, second: int = 0) -> int:
+    """A function that returns the seconds until a specified time."""
 
-    today = datetime.today()
+    today = datetime.now(timezone.utc)
 
     midnight = today.replace(
         day=today.day,
@@ -20,12 +20,10 @@ def run_at(hour=0, minute=0, second=0):
     return run.total_seconds()
 
 
-def timeout(hours=0, minutes=0, seconds=0):
-    """
-    A function that returns a timeout in seconds.
-    """
+def timeout(hours: int = 0, minutes: int = 0, seconds: int = 0) -> int:
+    """A function that returns a timeout in seconds."""
 
-    today = datetime.now()
+    today = datetime.now(timezone.utc)
 
     timeout = today.replace(
         day=today.day,
@@ -39,12 +37,10 @@ def timeout(hours=0, minutes=0, seconds=0):
     return run.total_seconds()
 
 
-def midnight():
-    """
-    A function that returns the seconds until midnight.
-    """
+def midnight() -> int:
+    """A function that returns the seconds until midnight."""
 
-    today = datetime.today()
+    today = datetime.now(timezone.utc)
 
     midnight = today.replace(
         day=today.day,

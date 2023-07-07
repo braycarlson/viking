@@ -1,25 +1,33 @@
+from __future__ import annotations
+
 import discord
 import logging
 
 from discord.ext import commands
 from model.role import DiscordRole
+from typing import TYPE_CHECKING
 from utilities.event import MemberEvent
 from utilities.format import format_list
 from utilities.member import DiscordMember, MemberInterface
+
+if TYPE_CHECKING:
+    from bot import Viking
+    from discord import Guild, Member, User
+    from discord.ext.commands import Context
 
 
 log = logging.getLogger(__name__)
 
 
 class Members(commands.Cog):
-    def __init__(self, viking):
+    def __init__(self, viking: Viking):
         self.viking = viking
         self.event = MemberEvent(self.viking)
 
     # Event Listeners
 
     @commands.Cog.listener()
-    async def on_member_join(self, member):
+    async def on_member_join(self, member: Member) -> None:
         """
         An event that is called when a member joins the guild.
         """
@@ -36,7 +44,7 @@ class Members(commands.Cog):
             await self.event.member_update(member)
 
     @commands.Cog.listener()
-    async def on_member_update(self, before, after):
+    async def on_member_update(self, before: Member, after: Member) -> None:
         """
         An event that is called when a member changes their status, game,
         nickname or role.
@@ -54,7 +62,7 @@ class Members(commands.Cog):
             await self.event.member_role_update(before, after)
 
     @commands.Cog.listener()
-    async def on_member_ban(self, guild, member):
+    async def on_member_ban(self, guild: Guild, member: Member) -> None:
         """
         An event that is called when a member is banned from the guild.
         """
@@ -63,7 +71,7 @@ class Members(commands.Cog):
         await self.event.member_ban(member.id)
 
     @commands.Cog.listener()
-    async def on_member_unban(self, guild, member):
+    async def on_member_unban(self, guild: Guild, member: Member) -> None:
         """
         An event that is called when a member is unbanned from the guild.
         """
@@ -72,7 +80,7 @@ class Members(commands.Cog):
         await self.event.member_unban(member.id)
 
     @commands.Cog.listener()
-    async def on_member_remove(self, member):
+    async def on_member_remove(self, member: Member) -> None:
         """
         An event that is called when a member is kicked or has left the
         guild.
@@ -82,10 +90,10 @@ class Members(commands.Cog):
         await self.event.member_remove(member.id)
 
     @commands.Cog.listener()
-    async def on_user_update(self, before, after):
+    async def on_user_update(self, before: User, after: User) -> None:
         """
-        An event that is called when a member changes their avatar,
-        username or discriminator.
+        An event that is called when a member changes their avatar
+        or username.
         """
 
         for guild in before.mutual_guilds:
@@ -97,16 +105,10 @@ class Members(commands.Cog):
                 else:
                     await self.event.name_append(before, after)
 
-            if before.discriminator != after.discriminator:
-                if before.discriminator is None:
-                    await self.event.discriminator_update(before, after)
-                else:
-                    await self.event.discriminator_append(before, after)
-
     # Commands
 
     @commands.command()
-    async def about(self, ctx, *, identifier):
+    async def about(self, ctx: Context, *, identifier: str) -> None:
         """
         *about <identifier>
 
@@ -152,11 +154,6 @@ class Members(commands.Cog):
             name='Name',
             value=member.name
         )
-        embed.add_field(
-            inline=False,
-            name='Discriminator',
-            value=member.discriminator
-        )
 
         if member.nickname is not None:
             embed.add_field(
@@ -200,18 +197,6 @@ class Members(commands.Cog):
                 value=previous_name
             )
 
-        if member.previous_discriminator is not None:
-            previous_discriminator = format_list(
-                member.previous_discriminator,
-                symbol='bullet',
-                sort=False
-            )
-            embed.add_field(
-                inline=False,
-                name='Previous Discriminators',
-                value=previous_discriminator
-            )
-
         if member.previous_nickname is not None:
             previous_nickname = format_list(
                 member.previous_nickname,
@@ -227,7 +212,7 @@ class Members(commands.Cog):
         await ctx.send(embed=embed)
 
     @commands.command()
-    async def created(self, ctx, *, identifier):
+    async def created(self, ctx: Context, *, identifier: str) -> None:
         """
         *created <identifier>
 
@@ -257,12 +242,11 @@ class Members(commands.Cog):
         )
 
     @commands.command()
-    async def id(self, ctx, *, identifier):
+    async def id(self, ctx: Context, *, identifier: str) -> None:
         """
         *id <identifier>
 
-        A command that displays the name and discriminator of a
-        member from an ID.
+        A command that displays the name of a member from an ID.
         """
 
         interface = MemberInterface(ctx, identifier)
@@ -273,18 +257,17 @@ class Members(commands.Cog):
 
         row = dict(
             await self.viking.guild.member
-            .select('name', 'discriminator')
+            .select('name')
             .where(self.viking.guild.member.discord_id == discord_id)
             .gino
             .first()
         )
 
         member = DiscordMember(row)
-
-        await ctx.send(f"{member.name}#{member.discriminator}")
+        await ctx.send(member.name)
 
     @commands.command()
-    async def joined(self, ctx, *, identifier):
+    async def joined(self, ctx: Context, *, identifier: str) -> None:
         """
         *joined <identifier>
 
@@ -314,6 +297,6 @@ class Members(commands.Cog):
         )
 
 
-async def setup(viking):
+async def setup(viking: Viking) -> None:
     members = Members(viking)
     await viking.add_cog(members)

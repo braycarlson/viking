@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from dataclasses import dataclass
 
 
@@ -67,9 +69,11 @@ class Game:
         self.participants = data.get('participants')
 
     @property
-    def mode(self):
+    def mode(self) -> str | None:
         if self.queue in self.QUEUES:
             return self.QUEUES[self.queue]
+
+        return None
 
 
 @dataclass
