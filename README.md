@@ -109,12 +109,6 @@ $ pip install -U -r requirements.txt
 ***ping**
 * Viking displays the latency to the Discord server.
 
-### **Fortnite**
-
-***fortnite \<platform> \<username>**
-* Viking displays a member's Fortnite statistics, including
-solo, duo, squad and lifetime data.
-
 ### **League of Legends**
 
 ***build \<champion>**
