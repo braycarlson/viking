@@ -2,35 +2,33 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import sys
 
-from bot import Viking
+import aiohttp.connector
+
 from contextlib import contextmanager
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing_extensions import TYPE_CHECKING
+
+from bot import Viking
+from core.config import configuration_validate
 
 if TYPE_CHECKING:
-    from typing_extensions import Any, Generator
-
-
-try:
-    import uvloop
-except ImportError:
-    pass
-else:
-    policy = uvloop.EventLoopPolicy()
-    asyncio.set_event_loop_policy(policy)
+    from collections.abc import Generator
+    from typing_extensions import Any
 
 
 @contextmanager
-def logger() -> Generator[None, Any, None]:
+def logger() -> Generator[None, Any]:
+    log = logging.getLogger()
+
     try:
-        log = logging.getLogger()
         log.setLevel(logging.INFO)
 
-        directory = Path(__file__).parent.joinpath('logs')
-        directory.mkdir(exist_ok=True)
-        path = directory / 'viking.log'
-        path.open('a', encoding='utf-8').close()
+        directory = Path(__file__).parent.joinpath('.logs')
+        directory.mkdir(parents=True, exist_ok=True)
+
+        path = directory.joinpath('viking.log')
 
         file_handler = logging.FileHandler(
             filename=path,
@@ -52,17 +50,37 @@ def logger() -> Generator[None, Any, None]:
 
         yield
     finally:
-        for handler in log.handlers:
+        for handler in list(log.handlers):
             handler.close()
             log.removeHandler(handler)
 
 
+def resolver_configure() -> None:
+    """
+    The aiodns (c-ares) resolver cannot read the Windows DNS configuration
+    and raises "Could not contact DNS servers" during login. Force aiohttp
+    onto the OS resolver on Windows only; Linux keeps aiodns. The Proactor
+    event loop is left intact so voice/ffmpeg subprocesses continue to work.
+    """
+
+    if sys.platform == 'win32':
+        aiohttp.connector.DefaultResolver = aiohttp.ThreadedResolver
+
+
 async def start() -> None:
     viking = Viking()
-    await viking.start()
+
+    try:
+        await viking.start()
+    finally:
+        await viking.close()
+        await viking.dispose()
 
 
 def main() -> None:
+    configuration_validate()
+    resolver_configure()
+
     with logger():
         bot = start()
         asyncio.run(bot)

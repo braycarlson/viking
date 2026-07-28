@@ -1,0 +1,12 @@
+* text=auto eol=lf
+
+justfile text eol=lf
+
+*.py text eol=lf
+*.sh text eol=lf
+*.ini text eol=lf
+*.md text eol=lf
+*.toml text eol=lf
+
+*.mp3 binary
+*.png binary

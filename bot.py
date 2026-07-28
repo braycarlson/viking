@@ -1,47 +1,42 @@
 from __future__ import annotations
 
-import aiohttp
-import asyncio
-import discord
 import logging
 import sys
 import time
 import traceback
 
-from configparser import RawConfigParser
+import aiohttp
+import discord
+
 from contextvars import ContextVar
-from database.command import Public
-from database.engine import (
-    command,
-    Guild,
-    lol,
-    nac,
-    viking,
-)
-from datetime import datetime, timezone
-from discord.ext import commands
+from datetime import datetime, time as time_of_day, UTC
+from math import ceil
 from pathlib import Path
 from random import SystemRandom
-from sqlalchemy import func
+
+from discord import app_commands
+from discord.ext import commands, tasks
 from tabulate import tabulate
-from typing import TYPE_CHECKING
-from utilities.format import format_list
-from utilities.time import midnight
 
-if TYPE_CHECKING:
-    from discord.app_commands import AppCommandError
+from core import embeds
+from core.config import configuration
+from core.db.command import CommandRepository
+from core.db.engine import engine_initialize
+from core.db.registry import databases, DatabaseConfiguration
 
-
-path = Path(__file__).parent.joinpath('config.ini')
-
-configuration = RawConfigParser()
-configuration.read(path)
 
 log = logging.getLogger(__name__)
 
+PURGE_CHANNEL = 'spam'
+PURGE_MESSAGES_MAX = 1000
+
+
+class GuildContextError(commands.CheckFailure):
+    pass
+
 
 class Viking(commands.Bot):
-    def __init__(self):
+    def __init__(self) -> None:
         allowed_mentions = discord.AllowedMentions(
             everyone=False,
             roles=False,
@@ -55,6 +50,7 @@ class Viking(commands.Bot):
             members=True,
             message_content=True,
             messages=True,
+            presences=True,
             reactions=True,
             voice_states=True,
         )
@@ -63,38 +59,34 @@ class Viking(commands.Bot):
             allowed_mentions=allowed_mentions,
             command_prefix=commands.when_mentioned_or('*'),
             case_insensitive=True,
-            enable_debug_events=True,
             intents=intents,
-            pm_help=None,
-            help_attrs={'hidden': True},
         )
 
         # Bot
         self.bot_name = configuration['bot']['bot_name']
-        self.bot_id = configuration['bot'].getint('bot_id')
-        self.color = discord.Colour.purple()
-        self.initialize_extensions = []
+        self.bot_identifier = configuration['bot'].getint('bot_id')
+        self.colour = discord.Colour.purple()
+        self.extension_names: list[str] = []
         self.owner_id = configuration['bot'].getint('owner_id')
         self.random = SystemRandom()
         self.root = Path(__file__).parent
+        self.session: aiohttp.ClientSession | None = None
         self.start_time = time.time()
         self.token = configuration['bot']['token']
 
         # Directories
         self.images = self.root.joinpath('images')
         self.champion = self.images.joinpath('lol/champion')
-        self.item = self.images.joinpath('lol/item')
-        self.rune = self.images.joinpath('lol/rune')
-        self.spell = self.images.joinpath('lol/spell')
 
-        self.logs = self.root.joinpath('logs')
-        self.sound = self.root.joinpath('sound')
+        self.logs = self.root.joinpath('.logs')
+        self.sound = self.root.joinpath('.sound')
 
         # Database
-        self.identifier = ContextVar(
-            '863292513141522433',
-            default='863292513141522433',
+        self.identifier: ContextVar[str | None] = ContextVar(
+            'identifier',
+            default=None,
         )
+
         self.uri = configuration['database']['postgresql']
 
         # API
@@ -102,73 +94,183 @@ class Viking(commands.Bot):
         self.lol_api_url = configuration['lol']['url']
         self.owm_api_key = configuration['owm']['key']
         self.owm_api_url = configuration['owm']['url']
-        self.rpd_api_key = configuration['rpd']['key']
-        self.trn_api_key = configuration['trn']['key']
-        self.wow_api_id = configuration['wow']['id']
-        self.wow_api_key = configuration['wow']['key']
 
     @property
-    def guild(self) -> str:
+    def guild(self) -> DatabaseConfiguration:
         identifier = self.identifier.get()
 
-        guild = Guild()
-        return guild.get(identifier)
+        if identifier is None:
+            database = None
+        else:
+            database = databases.guild(identifier)
 
-    async def update(self, identifier: str) -> None:
-        identifier = str(identifier)
-        self.identifier.set(identifier)
+        if database is None:
+            message = f'No database is registered for the guild: {identifier}'
+            raise GuildContextError(message)
 
-    async def purge(self) -> None:
-        """
-        A function that purges all messages from the spam channel at
-        midnight.
-        """
+        return database
 
-        while not self.is_closed():
-            time = midnight()
-            await asyncio.sleep(time)
+    async def _identifier_set(self, ctx: commands.Context) -> None:
+        if ctx.guild is None:
+            identifier = None
+        else:
+            identifier = ctx.guild.id
 
-            for guild in self.guilds:
-                for channel in guild.text_channels:
-                    if channel.name == 'spam':
-                        await channel.purge()
+        await self.update(identifier)
 
-    async def setup_hook(self) -> None:
-        self.loop.create_task(
-            self.purge()
-        )
+    @staticmethod
+    async def _interaction_respond(
+        interaction: discord.Interaction,
+        message: str
+    ) -> None:
+        if interaction.response.is_done():
+            await interaction.followup.send(message, ephemeral=True)
+        else:
+            await interaction.response.send_message(message, ephemeral=True)
 
-        await command.set_bind(self.uri + 'command')
-        await lol.set_bind(self.uri + 'lol')
-        await nac.set_bind(self.uri + 'nac')
-        await viking.set_bind(self.uri + 'viking')
+    def _runtime_directories_create(self) -> None:
+        directories = [
+            self.champion,
+            self.logs,
+            self.sound.joinpath('default'),
+            self.sound.joinpath('member'),
+        ]
 
-        self.session = aiohttp.ClientSession(loop=self.loop)
+        for directory in directories:
+            directory.mkdir(parents=True, exist_ok=True)
 
-    def get_extensions(self) -> None:
-        for path in self.root.joinpath('cogs').iterdir():
-            if not path.name.startswith('.') and path.is_file():
-                self.initialize_extensions.append(f'cogs.{path.stem}')
+    async def dispose(self) -> None:
+        if self.session is not None and not self.session.closed:
+            await self.session.close()
 
-    async def load_extensions(self) -> None:
-        for extension in self.initialize_extensions:
+        await databases.dispose()
+
+    def extensions_discover(self) -> None:
+        for path in self.root.iterdir():
+            if not path.name.startswith('.') and path.joinpath('cog.py').is_file():
+                name = path.name
+                self.extension_names.append(name)
+
+    async def extensions_load(self) -> None:
+        for extension in self.extension_names:
             try:
                 await self.load_extension(extension)
-            except ModuleNotFoundError as exception:
-                log.warning(exception)
+            except Exception:
+                message = 'Failed to load extension: %s'
+                log.exception(message, extension)
 
-    async def process_commands(self, message: str) -> None:
-        ctx = await self.get_context(message)
+    async def update(self, identifier: int | str | None) -> bool:
+        if identifier is None:
+            identifier_text = None
+        else:
+            identifier_text = str(identifier)
 
-        if message.guild is not None:
-            await self.update(message.guild.id)
+        self.identifier.set(identifier_text)
 
-        await self.invoke(ctx)
+        return identifier_text is not None and databases.guild(identifier_text) is not None
+
+    async def setup_hook(self) -> None:
+        self._runtime_directories_create()
+
+        command_engine, command_session = engine_initialize(self.uri + 'command')
+
+        command = DatabaseConfiguration(
+            engine=command_engine,
+            session=command_session,
+            name='command',
+        )
+
+        databases.command_register(command)
+
+        lol_engine, lol_session = engine_initialize(self.uri + 'lol')
+
+        lol = DatabaseConfiguration(
+            engine=lol_engine,
+            session=lol_session,
+            name='lol',
+        )
+
+        databases.lol_register(lol)
+
+        for guild_identifier, name in configuration['guilds'].items():
+            engine, session = engine_initialize(self.uri + name)
+
+            database_configuration = DatabaseConfiguration(
+                engine=engine,
+                session=session,
+                name=name,
+            )
+
+            databases.guild_register(guild_identifier, database_configuration)
+
+        self.session = aiohttp.ClientSession()
+
+        self.before_invoke(self._identifier_set)
+
+        self.tree.error(self.on_app_command_error)
+
+        self.extensions_discover()
+        await self.extensions_load()
+
+        self.purge.start()
+
+    async def start(self) -> None:
+        await super().start(self.token, reconnect=True)
+
+    # Event Listeners
+
+    async def on_app_command_error(
+        self,
+        interaction: discord.Interaction,
+        error: app_commands.AppCommandError
+    ) -> None:
+        """
+        An event that is called when an error is raised while invoking
+        an application command. This covers the app-command layer that
+        on_command_error does not see: cooldowns, checks, transformers
+        and pure slash commands.
+        """
+
+        match error:
+            case app_commands.CommandOnCooldown():
+                seconds = ceil(error.retry_after)
+
+                message = (
+                    f'This command is on cooldown. '
+                    f'Please wait {seconds} seconds.'
+                )
+
+            case (
+                app_commands.MissingPermissions() |
+                app_commands.MissingRole() |
+                app_commands.CheckFailure()
+            ):
+                message = 'You do not have permission to use this command.'
+
+            case app_commands.TransformerError():
+                message = 'That input could not be resolved.'
+
+            case _:
+                traceback.print_exception(type(error), error, error.__traceback__)
+
+                command = interaction.command
+
+                if command is None:
+                    name = 'unknown'
+                else:
+                    name = command.qualified_name
+
+                warning = f'{error.__class__.__name__} from {name}.'
+                log.warning(warning)
+
+                message = 'An unexpected error occurred.'
+
+        await self._interaction_respond(interaction, message)
 
     async def on_command_error(
         self,
         ctx: commands.Context,
-        error: AppCommandError
+        error: commands.CommandError
     ) -> None:
         """
         An event that is called when an error is raised while invoking
@@ -177,61 +279,50 @@ class Viking(commands.Bot):
 
         match error:
             case commands.CommandOnCooldown():
-                minutes, seconds = divmod(error.retry_after, 60)
+                seconds = ceil(error.retry_after)
 
-                await ctx.send(
-                    f"This command is on cooldown. "
-                    f"Please wait {seconds:.0f} seconds."
+                message = (
+                    f'This command is on cooldown. '
+                    f'Please wait {seconds} seconds.'
                 )
+
+                await ctx.send(message)
 
             case commands.CommandNotFound():
-                rows = (
-                    await Public
-                    .select('name')
-                    .where(func.levenshtein(Public.name, ctx.invoked_with) < 3)
-                    .limit(5)
-                    .gino
-                    .all()
-                )
+                repository = CommandRepository(databases.command.session)
+                rows = await repository.suggestions_get(ctx.invoked_with)
 
                 if len(rows) == 0:
-                    await ctx.send('Command not found.')
+                    message = 'Command not found.'
+                    await ctx.send(message)
+
                     return
 
-                suggestions = [dict(row).get('name') for row in rows]
-
-                suggestion = format_list(
-                    suggestions,
-                    symbol='asterisk',
-                    sort=False
-                )
-
-                embed = discord.Embed(color=self.color)
-
-                embed.add_field(
-                    name='Command not found. Did you mean...',
-                    value=suggestion
-                )
-
+                embed = embeds.suggestion_embed(rows, self.colour)
                 await ctx.send(embed=embed)
 
-            case (
-                commands.CheckFailure(),
-                commands.MissingPermissions(),
-                commands.MissingRole()
-            ):
-                await ctx.send('You do not have permission to use this command.')
+            case GuildContextError():
+                message = 'This command can only be used in a configured server.'
+                await ctx.send(message)
 
-            case (
-                commands.BadArgument(),
-                commands.MissingRequiredArgument()
-            ):
+            case commands.CheckFailure() | commands.MissingPermissions() | commands.MissingRole():
+                message = 'You do not have permission to use this command.'
+                await ctx.send(message)
+
+            case commands.BadArgument() | commands.MissingRequiredArgument():
                 return
 
             case _:
-                traceback.print_tb(error.__traceback__)
+                traceback.print_exception(type(error), error, error.__traceback__)
 
-                message = f"{error.__class__.__name__} from {ctx.command.qualified_name}."
+                command = ctx.command
+
+                if command is None:
+                    name = 'unknown'
+                else:
+                    name = command.qualified_name
+
+                message = f'{error.__class__.__name__} from {name}.'
                 log.warning(message)
 
                 if hasattr(error, 'original'):
@@ -243,24 +334,19 @@ class Viking(commands.Bot):
         connected to Discord.
         """
 
-        message = f"{self.bot_name} is connected."
+        message = f'{self.bot_name} is connected.'
         log.info(message)
 
-    async def on_message(self, message: str) -> None:
+    async def on_message(self, message: discord.Message) -> None:
         """
-        An event that is called every time a message is recieved,
+        An event that is called every time a message is received,
         including Viking.
         """
 
         condition = (
             message.author.bot or
-            message.content.endswith('*') or
-            message.content.startswith('*') and
-            message.content.endswith('*') or
             message.content.startswith('**') or
-            message.content.endswith('**') or
-            message.content.startswith('**') and
-            message.content.endswith('**')
+            message.content.endswith('*')
         )
 
         if condition:
@@ -277,20 +363,33 @@ class Viking(commands.Bot):
         python = sys.version_info
 
         table = [
-            ['ID', self.bot_id],
+            ['ID', self.bot_identifier],
             ['Name', self.bot_name],
-            ['Python', f"{python.major}.{python.minor}.{python.micro}"],
+            ['Python', f'{python.major}.{python.minor}.{python.micro}'],
             ['Discord.py', discord.__version__],
-            ['Date', datetime.now(tz=timezone.utc).strftime('%B %d, %Y at %I:%M %p')]
+            ['Date', datetime.now(tz=UTC).strftime('%B %d, %Y at %I:%M %p')]
         ]
 
         display = tabulate(table, tablefmt='psql')
         print(display)
 
-        message = f"{self.bot_name} is ready."
+        message = f'{self.bot_name} is ready.'
         log.info(message)
 
-    async def start(self) -> None:
-        self.get_extensions()
-        await self.load_extensions()
-        await super().start(self.token, reconnect=True)
+    # Tasks
+
+    @tasks.loop(time=time_of_day(hour=0, minute=0, tzinfo=UTC))
+    async def purge(self) -> None:
+        """
+        A task that purges all messages from the spam channel at
+        midnight.
+        """
+
+        for guild in self.guilds:
+            for channel in guild.text_channels:
+                if channel.name == PURGE_CHANNEL:
+                    await channel.purge(limit=PURGE_MESSAGES_MAX)
+
+    @purge.before_loop
+    async def before_purge(self) -> None:
+        await self.wait_until_ready()

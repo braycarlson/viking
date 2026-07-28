@@ -41,6 +41,7 @@ htmlcov/
 .coverage
 .coverage.*
 .cache
+.pytest_cache/
 nosetests.xml
 coverage.xml
 *.cover
@@ -102,6 +103,7 @@ ENV/
 
 # Configuration
 *.ini
+!config.example.ini
 *.pem
 *.ppk
 known_hosts
@@ -109,9 +111,11 @@ known_hosts
 # Viking
 *.mp3
 *.sh
+!run.sh
+.stop
 
-cogs/random.py
+.ruff_cache
 images/
-logs/
+.logs/
 script/
-sound/
+.sound/
