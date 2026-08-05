@@ -12,7 +12,12 @@ from discord import app_commands
 from discord.ext import commands, tasks
 
 from activity import embeds
-from activity.events import PendingPresence, PendingVoice
+from activity.events import (
+    PendingPresence,
+    PendingVoice,
+    PresenceSnapshot,
+    VoiceSnapshot,
+)
 from activity.images import graph_image
 from activity.service import ActivityEvent
 
@@ -48,12 +53,7 @@ class Activity(commands.Cog):
                 await self.event.presence_update(item.before, item.after, item.moment)
 
             case PendingVoice():
-                await self.event.voice_update(
-                    item.member,
-                    item.before,
-                    item.after,
-                    item.moment
-                )
+                await self.event.voice_update(item.before, item.after, item.moment)
 
     def _event_enqueue(self, item: PendingPresence | PendingVoice) -> None:
         try:
@@ -120,8 +120,8 @@ class Activity(commands.Cog):
         item = PendingPresence(
             guild_identifier=after.guild.id,
             moment=datetime.now(UTC),
-            before=before,
-            after=after,
+            before=PresenceSnapshot.capture(before),
+            after=PresenceSnapshot.capture(after),
         )
 
         self._event_enqueue(item)
@@ -136,9 +136,8 @@ class Activity(commands.Cog):
         item = PendingVoice(
             guild_identifier=member.guild.id,
             moment=datetime.now(UTC),
-            member=member,
-            before=before,
-            after=after,
+            before=VoiceSnapshot.capture(member, before),
+            after=VoiceSnapshot.capture(member, after),
         )
 
         self._event_enqueue(item)

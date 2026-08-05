@@ -17,23 +17,6 @@ from activity.service import (
 )
 
 
-VOICE_STATE = {
-    'deaf': False,
-    'mute': False,
-    'self_deaf': False,
-    'self_mute': False,
-    'self_stream': False,
-    'self_video': False,
-    'session_id': 'session',
-    'suppress': False,
-}
-
-
-class ChannelStub:
-    def __init__(self, identifier: int) -> None:
-        self.id = identifier
-
-
 @pytest.fixture
 def event() -> ActivityEvent:
     return ActivityEvent(None)
@@ -274,30 +257,3 @@ def test_trackable_excludes_spotify() -> None:
     )
 
     assert not ActivityEvent._trackable(spotify)
-
-
-def test_voice_key_without_channel() -> None:
-    state = discord.VoiceState(data=VOICE_STATE, channel=None)
-
-    assert ActivityEvent._voice_key(state) is None
-
-
-def test_voice_key_with_channel() -> None:
-    channel = ChannelStub(863292513141522435)
-    state = discord.VoiceState(data=VOICE_STATE, channel=channel)
-
-    assert ActivityEvent._voice_key(state) == 863292513141522435
-
-
-def test_voice_state_key_matches_identical_state() -> None:
-    first = discord.VoiceState(data=VOICE_STATE, channel=None)
-    second = discord.VoiceState(data=VOICE_STATE, channel=None)
-
-    assert ActivityEvent._voice_state_key(first) == ActivityEvent._voice_state_key(second)
-
-
-def test_voice_state_key_detects_change() -> None:
-    first = discord.VoiceState(data=VOICE_STATE, channel=None)
-    second = discord.VoiceState(data={**VOICE_STATE, 'self_mute': True}, channel=None)
-
-    assert ActivityEvent._voice_state_key(first) != ActivityEvent._voice_state_key(second)

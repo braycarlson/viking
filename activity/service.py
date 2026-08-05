@@ -6,6 +6,7 @@ from datetime import timedelta
 from typing_extensions import TYPE_CHECKING
 
 from activity.enums import ActivityType
+from activity.events import PresenceSnapshot, VoiceSnapshot
 from activity.models import (
     FriendEdge,
     FriendNode,
@@ -65,8 +66,8 @@ class ActivityEvent:
 
     async def _activity_synchronize(
         self,
-        before: discord.Member,
-        after: discord.Member,
+        before: PresenceSnapshot,
+        after: PresenceSnapshot,
         moment: datetime
     ) -> None:
         before_activities = {
@@ -81,15 +82,17 @@ class ActivityEvent:
             if self._trackable(activity)
         }
 
+        identifier = after.discord_id
+
         for key in before_activities.keys() - after_activities.keys():
             activity_type, name = key
-            await self.activities.close(after.id, activity_type, name, moment)
+            await self.activities.close(identifier, activity_type, name, moment)
 
         for key in after_activities.keys() - before_activities.keys():
-            await self.activities.open(after.id, after_activities[key], moment)
+            await self.activities.open(identifier, after_activities[key], moment)
 
         for key in before_activities.keys() & after_activities.keys():
-            await self.activities.state_sync(after.id, after_activities[key], moment)
+            await self.activities.state_sync(identifier, after_activities[key], moment)
 
     @staticmethod
     def _degree(edges: dict[tuple[int, int], float]) -> dict[int, float]:
@@ -177,8 +180,8 @@ class ActivityEvent:
 
     async def _listening_synchronize(
         self,
-        before: discord.Member,
-        after: discord.Member,
+        before: PresenceSnapshot,
+        after: PresenceSnapshot,
         moment: datetime
     ) -> None:
         before_tracks = {
@@ -194,10 +197,10 @@ class ActivityEvent:
         }
 
         if before_tracks - after_spotify.keys():
-            await self.listening.close(after.id, moment)
+            await self.listening.close(after.discord_id, moment)
 
         for track_id in after_spotify.keys() - before_tracks:
-            await self.listening.open(after.id, after_spotify[track_id], moment)
+            await self.listening.open(after.discord_id, after_spotify[track_id], moment)
 
     @staticmethod
     def _normalize(pairs: list[PairOverlap]) -> dict[tuple[int, int], float]:
@@ -242,57 +245,36 @@ class ActivityEvent:
 
     async def _status_synchronize(
         self,
-        before: discord.Member,
-        after: discord.Member,
+        before: PresenceSnapshot,
+        after: PresenceSnapshot,
         moment: datetime
     ) -> None:
-        offline = discord.Status.offline
-
-        before_key = (
-            before.status,
-            before.desktop_status is not offline,
-            before.web_status is not offline,
-            before.mobile_status is not offline,
-        )
-
-        after_key = (
-            after.status,
-            after.desktop_status is not offline,
-            after.web_status is not offline,
-            after.mobile_status is not offline,
-        )
-
-        if before_key == after_key:
+        if before.key == after.key:
             return
 
-        await self.status.close(after.id, moment)
+        await self.status.close(after.discord_id, moment)
 
-        if after.status is not offline:
+        if after.online:
             await self.status.open(after, moment)
 
     @staticmethod
     def _trackable(activity: discord.BaseActivity) -> bool:
         return not isinstance(activity, discord.Spotify) and activity.type.name in TRACKABLE
 
-    @staticmethod
-    def _voice_key(state: discord.VoiceState) -> int | None:
-        if state.channel is None:
+    async def _watermark(self) -> datetime | None:
+        marks = [
+            await self.activities.watermark(),
+            await self.listening.watermark(),
+            await self.status.watermark(),
+            await self.voice.watermark(),
+        ]
+
+        observed = [mark for mark in marks if mark is not None]
+
+        if not observed:
             return None
 
-        return state.channel.id
-
-    @staticmethod
-    def _voice_state_key(state: discord.VoiceState) -> tuple[bool, ...]:
-        return (
-            state.self_stream,
-            state.self_video,
-            state.self_mute,
-            state.self_deaf,
-            state.mute,
-            state.deaf,
-            state.suppress,
-            state.afk,
-        )
+        return max(observed)
 
     async def graph_friendship(self, center: int | None = None) -> FriendshipGraph:
         voice = await self.voice.pair_overlap(PAIR_SAMPLE_MAX)
@@ -344,8 +326,8 @@ class ActivityEvent:
 
     async def presence_update(
         self,
-        before: discord.Member,
-        after: discord.Member,
+        before: PresenceSnapshot,
+        after: PresenceSnapshot,
         moment: datetime
     ) -> None:
         await self._status_synchronize(before, after, moment)
@@ -359,53 +341,56 @@ class ActivityEvent:
         await self.status.dangling_close(moment)
 
     async def snapshot(self, guild: discord.Guild, moment: datetime) -> None:
-        await self.activities.dangling_zero()
-        await self.listening.dangling_zero()
-        await self.voice.dangling_zero()
-        await self.status.dangling_zero()
+        watermark = await self._watermark()
 
-        offline = discord.Status.offline
+        if watermark is None:
+            recovered = moment
+        else:
+            recovered = watermark
+
+        await self.activities.dangling_recover(recovered)
+        await self.listening.dangling_recover(recovered)
+        await self.voice.dangling_recover(recovered)
+        await self.status.dangling_recover(recovered)
 
         for member in guild.members:
-            if member.status is not offline:
-                await self.status.open(member, moment)
+            presence = PresenceSnapshot.capture(member)
 
-            for activity in member.activities:
+            if presence.online:
+                await self.status.open(presence, moment)
+
+            for activity in presence.activities:
                 if isinstance(activity, discord.Spotify):
-                    await self.listening.open(member.id, activity, moment)
+                    await self.listening.open(presence.discord_id, activity, moment)
                     continue
 
                 if self._trackable(activity):
-                    await self.activities.open(member.id, activity, moment)
+                    await self.activities.open(presence.discord_id, activity, moment)
 
             voice_state = member.voice
 
             if voice_state is not None and voice_state.channel is not None:
-                await self.voice.open(member, voice_state, moment)
+                await self.voice.open(VoiceSnapshot.capture(member, voice_state), moment)
 
     async def voice_update(
         self,
-        member: discord.Member,
-        before: discord.VoiceState,
-        after: discord.VoiceState,
+        before: VoiceSnapshot,
+        after: VoiceSnapshot,
         moment: datetime
     ) -> None:
-        before_channel = self._voice_key(before)
-        after_channel = self._voice_key(after)
+        if before.channel_id != after.channel_id:
+            if before.channel_id is not None:
+                await self.voice.close(after.discord_id, moment)
 
-        if before_channel != after_channel:
-            if before_channel is not None:
-                await self.voice.close(member.id, moment)
-
-            if after_channel is not None:
-                await self.voice.open(member, after, moment)
+            if after.channel_id is not None:
+                await self.voice.open(after, moment)
 
             return
 
-        if after_channel is None:
+        if after.channel_id is None:
             return
 
-        if self._voice_state_key(before) == self._voice_state_key(after):
+        if before.key == after.key:
             return
 
-        await self.voice.state_sync(member.id, after, moment)
+        await self.voice.state_sync(after, moment)

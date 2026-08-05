@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-import discord
-
+from datetime import timedelta
 from typing_extensions import ClassVar, TYPE_CHECKING
 
-from sqlalchemy import and_, distinct, func, select, update
+from sqlalchemy import and_, case, distinct, func, select, update
 from sqlalchemy.orm import aliased
 
 from activity.enums import ActivityType
@@ -33,14 +32,18 @@ from core.db.tables import (
 )
 
 if TYPE_CHECKING:
-    from datetime import datetime, timedelta
+    import discord
+
+    from datetime import datetime
     from typing_extensions import Any
 
+    from activity.events import PresenceSnapshot, VoiceSnapshot
     from sqlalchemy.engine import Row
     from sqlalchemy.orm.util import AliasedClass
 
 
 NOW_PLAYING_MAX = 100
+SESSION_STITCH_GAP = timedelta(minutes=5)
 
 
 class SessionRepository(Repository):
@@ -90,14 +93,23 @@ class SessionRepository(Repository):
 
         await self._execute(statement)
 
-    async def dangling_zero(self) -> None:
+    async def dangling_recover(self, ended_at: datetime) -> None:
         statement = (
             update(self.model)
             .where(self.model.ended_at.is_(None))
-            .values(ended_at=self.model.started_at)
+            .values(ended_at=func.greatest(self.model.started_at, ended_at))
         )
 
         await self._execute(statement)
+
+    async def watermark(self) -> datetime | None:
+        query = select(
+            func.max(
+                func.greatest(self.model.started_at, self.model.ended_at)
+            )
+        )
+
+        return await self._scalar(query)
 
 
 class ActivitySessionRepository(SessionRepository):
@@ -246,16 +258,52 @@ class ActivitySessionRepository(SessionRepository):
         )
 
     async def member_longest(self, discord_id: int) -> LongestSession | None:
-        duration = ActivitySession.ended_at - ActivitySession.started_at
+        previous = func.lag(ActivitySession.ended_at).over(
+            partition_by=ActivitySession.name,
+            order_by=ActivitySession.started_at,
+        )
 
-        query = (
+        boundary = case(
+            (ActivitySession.started_at - previous < SESSION_STITCH_GAP, 0),
+            else_=1,
+        )
+
+        ordered = (
             select(
-                ActivitySession.name,
-                duration.label('duration'),
+                ActivitySession.name.label('name'),
+                ActivitySession.started_at.label('started_at'),
+                ActivitySession.ended_at.label('ended_at'),
+                boundary.label('boundary'),
             )
             .where(ActivitySession.discord_id == discord_id)
             .where(ActivitySession.type == ActivityType.PLAYING)
             .where(ActivitySession.ended_at.isnot(None))
+            .cte('ordered')
+        )
+
+        run = func.sum(ordered.c.boundary).over(
+            partition_by=ordered.c.name,
+            order_by=ordered.c.started_at,
+        )
+
+        grouped = (
+            select(
+                ordered.c.name.label('name'),
+                ordered.c.started_at.label('started_at'),
+                ordered.c.ended_at.label('ended_at'),
+                run.label('run'),
+            )
+            .cte('grouped')
+        )
+
+        duration = func.max(grouped.c.ended_at) - func.min(grouped.c.started_at)
+
+        query = (
+            select(
+                grouped.c.name,
+                duration.label('duration'),
+            )
+            .group_by(grouped.c.name, grouped.c.run)
             .order_by(duration.desc())
             .limit(1)
         )
@@ -676,18 +724,16 @@ class StatusSessionRepository(SessionRepository):
             for row in rows
         ]
 
-    async def open(self, member: discord.Member, started_at: datetime) -> None:
-        await self.close(member.id, started_at)
-
-        offline = discord.Status.offline
+    async def open(self, snapshot: PresenceSnapshot, started_at: datetime) -> None:
+        await self.close(snapshot.discord_id, started_at)
 
         record = StatusSession(
-            discord_id=member.id,
+            discord_id=snapshot.discord_id,
             started_at=started_at,
-            status=member.status.value,
-            desktop=member.desktop_status is not offline,
-            web=member.web_status is not offline,
-            mobile=member.mobile_status is not offline,
+            status=snapshot.status,
+            desktop=snapshot.desktop,
+            web=snapshot.web,
+            mobile=snapshot.mobile,
         )
 
         await self._add(record)
@@ -695,19 +741,6 @@ class StatusSessionRepository(SessionRepository):
 
 class VoiceSessionRepository(SessionRepository):
     model = VoiceSession
-
-    @staticmethod
-    def _state(state: discord.VoiceState) -> dict[str, Any]:
-        return {
-            'streaming': state.self_stream,
-            'video': state.self_video,
-            'self_mute': state.self_mute,
-            'self_deaf': state.self_deaf,
-            'server_mute': state.mute,
-            'server_deaf': state.deaf,
-            'suppress': state.suppress,
-            'afk': state.afk,
-        }
 
     async def channel_leaderboard(self, limit: int) -> list[ChannelStat]:
         duration = func.sum(VoiceSession.ended_at - VoiceSession.started_at)
@@ -846,23 +879,16 @@ class VoiceSessionRepository(SessionRepository):
             for row in rows
         ]
 
-    async def open(
-        self,
-        member: discord.Member,
-        state: discord.VoiceState,
-        started_at: datetime
-    ) -> None:
-        await self.close(member.id, started_at)
-
-        channel = state.channel
+    async def open(self, snapshot: VoiceSnapshot, started_at: datetime) -> None:
+        await self.close(snapshot.discord_id, started_at)
 
         async with self._session_maker() as session:
             record = VoiceSession(
-                discord_id=member.id,
+                discord_id=snapshot.discord_id,
                 started_at=started_at,
-                channel_id=channel.id,
-                channel_name=channel.name,
-                session_id=state.session_id,
+                channel_id=snapshot.channel_id,
+                channel_name=snapshot.channel_name,
+                session_id=snapshot.session_id,
             )
 
             session.add(record)
@@ -871,7 +897,7 @@ class VoiceSessionRepository(SessionRepository):
             child = VoiceState(
                 session_id=record.id,
                 changed_at=started_at,
-                **self._state(state),
+                **snapshot.state,
             )
 
             session.add(child)
@@ -910,18 +936,13 @@ class VoiceSessionRepository(SessionRepository):
         rows = await self._all(query)
         return self._pair_overlaps(rows)
 
-    async def state_sync(
-        self,
-        discord_id: int,
-        state: discord.VoiceState,
-        moment: datetime
-    ) -> None:
+    async def state_sync(self, snapshot: VoiceSnapshot, moment: datetime) -> None:
         conditions = [
-            VoiceSession.discord_id == discord_id,
+            VoiceSession.discord_id == snapshot.discord_id,
             VoiceSession.ended_at.is_(None),
         ]
 
-        values = self._state(state)
+        values = snapshot.state
 
         async with self._session_maker() as session:
             open_id = await session.scalar(

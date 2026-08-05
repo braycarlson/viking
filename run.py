@@ -34,7 +34,9 @@ def logger() -> Generator[None, Any]:
             filename=path,
             encoding='utf-8',
         )
+
         stream_handler = logging.StreamHandler()
+
         formatter = logging.Formatter(
             '[{asctime}] [{levelname}] {name}: {message}',
             '%Y-%m-%d %I:%M:%S %p',
@@ -42,6 +44,7 @@ def logger() -> Generator[None, Any]:
         )
 
         file_handler.setFormatter(formatter)
+
         stream_handler.setFormatter(formatter)
         stream_handler.setLevel(logging.WARNING)
 
@@ -52,6 +55,7 @@ def logger() -> Generator[None, Any]:
     finally:
         for handler in list(log.handlers):
             handler.close()
+
             log.removeHandler(handler)
 
 
